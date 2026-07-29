@@ -1,0 +1,9 @@
+# Linked worktrees live here by convention — the directory name is the feature name, and that is
+# what puts a row under `development` on the roadmap. They are checkouts, not content: never commit
+# one into the repo that owns it.
+worktrees/
+
+# Every file this machinery writes goes down as a temp file and is then RENAMED over its target, so
+# a kill mid-write cannot leave half a file. A kill BETWEEN the two steps leaves this debris, and
+# debris must never become a finding in the check that reads the tree.
+*.conducted-lite-tmp.*
