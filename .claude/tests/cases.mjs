@@ -557,8 +557,7 @@ export const cases = [
     why: 'No redirection exists anywhere in this command. The arrow sits in a `<<\'EOF\'` body ' +
       'inside a `"…"` argument, so the shell never reads that `>` as code.',
     payload: bash('b-pr-body-arrow'),
-    expect: { decision: 'allow' },
-    notMentions: ['server__miq-server__appsettings.json'],
+    expect: { decision: 'allow', notMentions: ['server__miq-server__appsettings.json'] },
   },
   {
     id: 'B-pr-body-fat-arrow',
@@ -1538,8 +1537,7 @@ export const cases = [
       + 'records twice from the field, both worked around with --body-file — and the PR body for '
       + 'this very change quotes the bypass table, so it would have denied itself.',
     payload: bash('d-wrapper-prose-in-pr-body'),
-    expect: { decision: 'allow' },
-    notMentions: ['src/app.ts'],
+    expect: { decision: 'allow', notMentions: ['src/app.ts'] },
   },
   {
     id: 'D-wrapper-prose-in-commit-message',
