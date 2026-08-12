@@ -1,0 +1,1 @@
+sed -i 's|SRC|SEDPIPE|' src/app.ts

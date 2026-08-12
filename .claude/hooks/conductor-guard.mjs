@@ -84,8 +84,21 @@
 // `//localhost/c$/…/src/app.ts` were ALLOWED while every other spelling of that file denied — both
 // proved writable first. The extended-length (`\\?\`), device (`\\.\`) and `\\?\UNC\` prefixes and
 // an administrative share on THIS machine are folded to the plain path in norm(), before anything
-// judges them. A share this guard cannot prove is local, a non-admin share name, and 8.3 short names
-// are NOT folded and stay allowed: an unmapped spelling is an unknown, and unknown is an allow.
+// judges them. A share this guard cannot prove is local and a non-admin share name are NOT folded
+// and stay allowed: an unmapped spelling is an unknown, and unknown is an allow.
+//
+// TWO MORE SPELLINGS, 2026-08-13, both driven out by a second evaluator and both fixed rather than
+// declared. `src/app.ts::$DATA` — the NTFS default data stream, which IS the file — ALLOWED on the
+// Edit/Write path, because classify() read the `$` as a variable; `fs.writeFileSync` through it
+// leaves `src/app.ts` on disk at size 1, measured. It is folded in norm(), win32-only. And an 8.3
+// SHORT NAME was worse than allowed: this paragraph used to list `C:\PROGRA~1\…` beside the unproven
+// shares as "not folded and therefore allowed", and it was not allowed — `Write CONDUC~1/roadmap.md`
+// DENIED, naming `CONDUC~1/roadmap.md`, the conductor's own roadmap under his own `.conducted/`. The
+// short name matched no OWNED pattern and the ordinary deny fired; nothing ever reached the "unknown
+// is an allow" the sentence promised. Short names are folded by the FILESYSTEM now — see longName()
+// — and a short name that folds to product code is still denied, by its long name. Nothing is waved
+// through for merely containing a `~1`: that was tried, and it turned the ordinary filenames
+// `src/app~1.ts` and `packages/x~2.ts` into allows.
 //
 // BASH COVERAGE IS BEST-EFFORT, AND THE Edit/Write PATH IS THE REAL GUARANTEE. Say it plainly: a
 // shell is a general-purpose machine and no regex owns it. What is here catches the obvious
@@ -158,10 +171,20 @@
 // header claiming coverage it does not have is how the last "confirmed clean" was wrong:
 //   ALLOW  bash -cx "…"          the `c` is not last in its cluster — the declared cost, one screen down
 //   ALLOW  ash -c "…"            not in the verb set; `cmd /c` likewise
-//   ALLOW  echo $(bash -c "…")   `$(bash` is one word to the splitter, so no verb token exists. Note
+//   ALLOW  echo $(bash -c "…")   `$(bash` is one word to the splitter, so no verb token exists. It
+//                                is the wrapper's own quoting that hides this one, and it is left
+//                                rather than smuggled.
+//                                THE SENTENCE THAT USED TO FOLLOW THIS ONE WAS FALSE, and it is
+//                                worth keeping the correction where the claim was: it read "note
 //                                that `$( … > src/app.ts)` IS still caught, by the redirect branch:
-//                                that `>` sits at a code offset. It is the wrapper's own quoting
-//                                that hides this one, and it is left rather than smuggled.
+//                                that `>` sits at a code offset". The reasoning was right — the
+//                                mask does re-enter a substitution — and the conclusion was wrong.
+//                                Measured 2026-08-13, `echo $(echo x > src/app.ts)`,
+//                                `echo "$(…)"`, `x=$(…)` and the backtick spelling ALL ALLOWED and
+//                                all wrote the file. The target class swallowed the closing `)`, so
+//                                the target read as `src/app.ts)` and failed the candidacy test one
+//                                step after the sentence stopped looking. Fixed at REDIRECT, not
+//                                rewritten as a declared miss; the claim is now true.
 //   ALLOW  S="…"; bash -c "$S"   the script is a variable. One hop is bindingOf()'s rule for the
 //                                interpreter branch and is deliberately not minted twice here.
 //   ALLOW  bash <<'EOF' … / bash -s   the script arrives on stdin, not on the command line
@@ -177,13 +200,37 @@
 //     is the trap IN_PLACE_FLAG documents one screen down, in its other direction: a rule matching a
 //     letter ANYWHERE in a cluster reads options that merely contain the letter as the flag. Ending
 //     the word at the `c` costs `bash -cx '…'` (a real inline script bash accepts), a miss, which is
-//     the direction this file errs in everywhere.
+//     the direction this file errs in everywhere. THAT IS THE CLUSTER AND ONLY THE CLUSTER: the
+//     declared cost never covered `bash -c -x "…"`, where the `-c` is its own word and an ordinary
+//     option follows it, and that shape ALLOWED while `bash -x -c "…"` denied — one word's order
+//     between a catch and a miss, 2026-08-13. Measured in bash 5.2 first: `bash -c -x "echo written
+//     > src/app.ts"` exits 0 and creates the file, so bash goes on reading options after the `-c`
+//     and takes the first NON-option word as the script. nestedScripts() does the same now.
 //   · THE RE-ENTRY IS BOUNDED AT TWO. `bash -c "bash -c '…'"` is legal and nests without limit, so
 //     the depth is capped: two wrappers are scanned in full, and a THIRD is denied as an unresolved
 //     write-shaped command that NAMES NOTHING, the same honest exit the interpreter branch has. Two
 //     because one wrapper is what people actually type and two is what `sudo bash -c "bash -c …"`
 //     and `find -exec sh -c` produce between them; past that a command line is obfuscating rather
 //     than working, and the cap is what stops a crafted string from being the hook's runtime.
+//     THE CAP WAS BEING WALKED PAST, 2026-08-13, and not by nesting — by ESCAPED INNER QUOTES.
+//     `bash -c "bash -c \"bash -c 'echo x > src/app.ts'\""` is how a person actually types a third
+//     level, and it ALLOWED and wrote the file while the plain-quoted `bash -c 'sh -c "sh -c …"'`
+//     denied. words() closed the quote on the escaped `"`, shredding the script into
+//     `bash -c \bash`, a fragment with no write in it, so the third wrapper never existed to be
+//     capped. The fix is in words(), not in the cap: a backslash inside `"…"` escapes the quote,
+//     which is what codeMask() has always done — the two readings drifting apart, again.
+//
+// AND A SEPARATOR IS A SEPARATOR ONLY WHERE THE SHELL IS READING CODE — RULING, 2026-08-13, and it
+// is the root cause underneath most of a second evaluator's twenty-one bypasses. segments() split
+// the command on `|`, `;`, `&&`, `||` and newline with a bare regex over the raw bytes, so ONE
+// QUOTED separator cut a command into fragments in which no branch could see a whole invocation.
+// The redirect, tee and interpreter branches were immune — they already consult codeMask() — and
+// cp/mv, the in-place edit and the shell wrapper were not, because they read WORDS out of a segment
+// that had already been cut in half underneath them. `sed -i 's|SRC|DST|' src/app.ts`, THE CANONICAL
+// SED IDIOM, was one character from its own control and allowed. So segments() asks the SAME MASK
+// the redirect branch asks, and a `#` comment at a code offset ends the segment for the same reason
+// — the shell never runs a comment, and reading one as a command is this file's oldest failure
+// wearing its newest hat. See segments().
 //
 // AND THE VERB'S OFFSET IS TESTED AGAINST codeMask(), exactly as a redirection operator's is. A
 // `bash -c "…"` sitting inside a heredoc body or a quoted `--body` is PROSE ABOUT a command, and
@@ -207,6 +254,71 @@
 // never touched. Scratch and prose extensions (.md .txt .log .out .tmp .diff .patch) are exempt on the
 // Bash path but not on the Edit/Write path — asymmetric on purpose: a Bash deny kills a whole
 // chained command including the reads after it, so its false-positive cost is much higher.
+//
+// ============================================================================================
+// DECLARED LIMITS — RULING, 2026-08-13, and it is what closes this feature.
+//
+// THIS GUARD STOPS A CONDUCTOR WHO HAS DRIFTED INTO BUILDING. Every field catch to date was drift —
+// a hand reaching for sed or an editor tool without the session noticing it had stopped dispatching.
+// It does NOT stop a conductor determined to get past it, and the fail-open design accepts that: a
+// guard that guesses is a guard that gets switched off, and a disabled guard is worse than none.
+// Read every hole below as the price of that, not as a bug list awaiting a patch.
+//
+// THEY ARE WRITTEN DOWN HERE BECAUSE THE ALTERNATIVE IS AN EVALUATOR REDISCOVERING THEM. This file
+// has now had four rounds where a "confirmed clean" was wrong, and twice the wrongness was a header
+// claiming coverage the mechanism did not have. A named hole costs nothing; an unnamed one costs the
+// next reader's trust in every true sentence around it. Each line below was MEASURED against this
+// build, out of process, with no agent_id — not reasoned about:
+//
+//   1. GIT IS EXEMPT, AND THE EXEMPTION COVERS REAL WRITE PATHS. `git apply /c/temp/p.patch`,
+//      `git checkout HEAD -- src/app.ts`, `git restore --source=HEAD src/app.ts`, `git stash pop`
+//      and `git mv docs/a.md src/app.ts` all ALLOW, and every one of them can put arbitrary content
+//      into a product path. The rationale above stands — prose lives in git messages, and the
+//      conductor commits, pushes, branches and worktrees all day — but the cost is that git is a
+//      general-purpose file-placing machine and the exemption does not distinguish its verbs.
+//      `git show HEAD:x > src/app.ts` is still denied, because that is a redirection, not git.
+//
+//   2. THE INTERPRETER WRITE VOCABULARY IS AN ENUMERATED LIST, NOT A SEMANTIC ANALYSIS. INTERPRETER,
+//      INLINE_SCRIPT and WRITE_CALL are three regexes over names somebody thought of. What is
+//      outside them ALLOWS, measured: `node --eval` and `node -p` (only `-e` is in INLINE_SCRIPT),
+//      `py -c` (only `python`/`python3` are in INTERPRETER), `awk`, `php -r`, `deno eval`, and, from
+//      inside a recognised interpreter, `copyFileSync`, `renameSync`, `shutil.copy`, `os.rename`,
+//      `perl -e 'open(F,">",…)'` and `powershell -Command "'x' > f"`. `node -e` and `python -c` with
+//      `writeFileSync`/`open(…,'w')` DO deny — the list works, it is just a list. Extending it is
+//      whack-a-mole by construction and the Edit/Write path remains the real guarantee.
+//
+//   3. A DIRECTORY OR EXTENSIONLESS TARGET IN THE CP FAMILY IS MISSED. `cp -r /c/temp/src src/`
+//      imports a whole tree and ALLOWS; so do `cp /c/temp/Makefile Makefile` and
+//      `mv /c/temp/a.ts src/app`. Same root cause as the declared `> Makefile` miss: looksLikeFile()
+//      needs an extension. NOT the whole family, and the difference is worth having right — an
+//      ordinary `cp /c/temp/a.ts src/` DENIES, naming `src/a.ts`, because a directory destination is
+//      joined with each source's basename and the basename has the extension. It is the SOURCE being
+//      a directory, or the target having no extension, that loses it.
+//
+//   4. A JUNCTION OR SYMLINK INTO A REPO SUBDIRECTORY IS INVISIBLE. Measured with real junctions: a
+//      write through one pointing at `<repo>/src` ALLOWS on both the Edit/Write and Bash paths,
+//      while one pointing at the repo ROOT is caught. The asymmetry is findRoot()'s — it walks up
+//      from the path as spelled, so it finds `.conducted/CONDUCTOR.md` through a root junction and
+//      finds nothing above a subdirectory junction. Resolving every path through realpath would
+//      close it and would also make every call pay a syscall per ancestor; longName() does it for
+//      8.3 names only, where the guard clause makes it rare.
+//
+//   5. A NON-EXISTENT cwd DISARMS RELATIVE TARGETS, ON BOTH PATHS. With `cwd` naming a directory
+//      that does not exist and the process's own cwd outside every lite tree, `Write src/app.ts` and
+//      `echo x > src/app.ts` both ALLOW. ABSOLUTE in-repo targets still deny — that is the
+//      2026-08-13 ruling above working — so what is lost is only the path that has no tree to be
+//      measured against, which is the file's oldest verdict reached by an accident rather than a
+//      judgement. Reported and deliberately not fixed.
+//
+//   6. AN ALTERNATE DATA STREAM OTHER THAN THE DEFAULT IS NOT FOLDED. `::$DATA` is folded because it
+//      IS the file. `src/app.ts:s1` is not, and measured, `fs.writeFileSync('src/a3.ts:s1','X')`
+//      creates `src/a3.ts` at ZERO BYTES — the content goes into the stream, the base file into
+//      existence. It happens to DENY, but for the wrong reason: the literal string `src/app.ts:s1`
+//      matches no OWNED pattern. The corollary is the part to watch — `.conducted/roadmap.md:s1`
+//      allows, correctly but by the same accident. Folding `:stream` generally would mean deciding
+//      that a colon in a path is not a drive letter, and inventing that rule is the guessing this
+//      file refuses everywhere else.
+// ============================================================================================
 //
 // PreToolUse payload:
 //   { session_id, transcript_path, cwd, hook_event_name: "PreToolUse", tool_name, tool_input,
@@ -242,7 +354,7 @@
 //                                 NOTHING. One shape, one exit; there is no second pass hunting the
 //                                 line for a candidate to blame.
 //   · any unexpected throw        fails open
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, statSync, realpathSync } from 'node:fs';
 import { hostname } from 'node:os';
 import { join, dirname, resolve as pathResolve, relative as pathRelative, isAbsolute } from 'node:path';
 
@@ -269,7 +381,8 @@ const OWNED_SUMMARY = '.conducted/**, research/**, docs/**.md, CLAUDE.md, README
 // filesystem `README.md` and `readme.md` are two different files and case-folding really would
 // widen the set, so this is win32-only and deliberately not extended to darwin — a Mac volume can be
 // formatted either way and the guard cannot ask cheaply. The patterns themselves are unchanged.
-const FOLD_CASE = process.platform === 'win32';
+const WIN32 = process.platform === 'win32';
+const FOLD_CASE = WIN32;
 const OWNED_MATCH = FOLD_CASE
   ? OWNED.map((re) => (re.flags.includes('i') ? re : new RegExp(re.source, re.flags + 'i')))
   : OWNED;
@@ -324,12 +437,30 @@ function isLocalHost(h) {
 //   \\?\C:\x  \\.\C:\x        -> C:/x          the extended-length and device namespaces
 //   \\?\UNC\host\share\x      -> //host/share/x  the same prefixes wearing a UNC
 //   \\host\c$\x (host local)  -> C:/x          an administrative share on THIS machine
+//   src\app.ts::$DATA         -> src/app.ts    the DEFAULT data stream, which IS the file
 // WHAT IS DELIBERATELY NOT FOLDED, because folding it would be a guess: a non-admin share name
-// (`\\localhost\projects\…` may point anywhere), a remote host's admin share, and 8.3 short names
-// (`C:\PROGRA~1\…`). Each stays unmapped and therefore allowed, which is the direction this file
-// errs in everywhere.
+// (`\\localhost\projects\…` may point anywhere) and a remote host's admin share. Each stays
+// unmapped and therefore allowed, which is the direction this file errs in everywhere. 8.3 short
+// names used to be on this list and are no longer: see longName() below — an unmapped spelling is an
+// unknown and an allow, but a DENY naming `CONDUC~1/roadmap.md` is not an allow, and that is what
+// leaving them alone actually produced.
+//
+// `::$DATA` IS THE FILE, NOT A STREAM BESIDE IT — RULING, 2026-08-13. A fresh evaluator got
+// `file_path: "src/app.ts::$DATA"` past the Edit/Write path, the path this file's own header calls
+// the real guarantee. Measured before it was believed, `fs.writeFileSync` through each spelling on
+// this machine:
+//   writeFileSync('src/a1.ts::$DATA','X')  -> src/a1.ts exists, size 1   <- the file itself
+//   writeFileSync('src/a2.ts::$data','X')  -> src/a2.ts exists, size 1   <- NTFS folds the case
+//   writeFileSync('src/a3.ts:s1','X')      -> src/a3.ts exists, size 0   <- a real stream BESIDE it
+// The first two are `src/app.ts` under another name and are folded here, case-insensitively, before
+// classify()'s `$` test can read the `$` as a variable and allow. The third is NOT folded and is
+// reported rather than smuggled: it creates the base file but empty, so it is a different shape from
+// "writes product code", and inventing a fold for it is the guessing this file refuses elsewhere.
+// win32-only, for the reason FOLD_CASE is: on a POSIX volume `a.ts::$DATA` is a legitimate,
+// different filename and folding it would judge a path nobody named.
 function norm(p) {
   let s = String(p || '').replace(/\\/g, '/');
+  if (WIN32) s = s.replace(/::\$DATA$/i, '');
   const ns = s.match(/^\/\/[?.]\/(.*)$/);
   if (ns) s = /^UNC\//i.test(ns[1]) ? '//' + ns[1].slice(4) : ns[1];
   const unc = s.match(/^\/\/([^/]+)\/([A-Za-z])\$(?:\/(.*))?$/);
@@ -367,9 +498,54 @@ function findRoot(start) {
 // the file's oldest verdict — unknown, which allows.
 const rootOf = (abs, fallback) => findRoot(dirname(abs)) || fallback || null;
 
+// AN 8.3 SHORT NAME IS THE SAME FILE, AND LEAVING IT UNMAPPED WAS NOT THE ALLOW IT CLAIMED TO BE.
+// This file used to list short names beside the unproven shares as "not folded and therefore
+// allowed". Measured 2026-08-13, that is false in the one direction that matters: `Write
+// <repo>/CONDUC~1/roadmap.md` DENIED, naming `CONDUC~1/roadmap.md` — the conductor's own roadmap,
+// under `.conducted/`, the first entry in the allow-set. Nothing was allowing it; the short name
+// simply matched no OWNED pattern, so the ordinary deny fired. A conductor-owned file being denied
+// is the exact class this feature exists to kill.
+//
+// So it is FOLDED, by the filesystem rather than by a rule: `realpathSync.native` returns the long
+// name, and it is asked about the LONGEST EXISTING PREFIX so a write to a file that does not exist
+// yet under a short-named directory still folds. Measured on this machine before it was believed:
+//   realpathSync.native('<repo>/CONDUC~1') -> '<repo>\.conducted'   (dir /x confirms the 8.3 name)
+//   realpathSync.native('C:/PROGRA~1')     -> 'C:\Program Files'
+// THIS IS A FOLD AND NOTHING ELSE — IT WIDENS NO ALLOW, and that distinction is the whole of it.
+// `PACKAG~1/app.ts` folds to `packages/app.ts` and is still DENIED, named by its long name. The
+// first draft of this went further and had classify() return 'unknown' for any path still carrying a
+// `~<digit>` after the fold, on the theory that an unfoldable short name is an unmapped spelling.
+// MEASURED, and it was a hole: `~1` is a legal thing to call an ordinary file, so `src/app~1.ts` and
+// `packages/x~2.ts` — plain product paths, no 8.3 anywhere — went from denied to ALLOWED, on the
+// Edit/Write path and through a redirect. A fix for a false positive that manufactures a miss has
+// moved the error, not removed it, which is the sentence this file writes in four other places. So
+// there is no short-circuit: a name the filesystem can fold is folded, and a name it cannot is
+// judged exactly as it is written. What that costs, named rather than smuggled: on a volume with 8.3
+// generation switched off, `CONDUC~1/roadmap.md` denies — but there that name is not a spelling of
+// `.conducted` at all, it is a directory that does not exist and cannot be written to.
+//
+// WHAT IT COSTS, named rather than smuggled: realpathSync.native also resolves symlinks and
+// junctions, so a path containing a short name is measured against its LINK TARGET's tree. The
+// guard clause is what contains that — a path with no `~<digit>` component never reaches realpath,
+// so the junction shapes this feature deliberately leaves alone are untouched.
+const SHORT_NAME = /(?:^|[/\\])[^/\\]*~\d/;
+function longName(abs) {
+  if (!WIN32 || !SHORT_NAME.test(abs)) return abs;
+  let head = abs;
+  const tail = [];
+  for (let i = 0; i < 40; i++) {
+    try { return pathResolve(realpathSync.native(head), ...tail); } catch { /* not on disk: go up */ }
+    const up = dirname(head);
+    if (up === head) return abs;
+    tail.unshift(head.slice(up.length).replace(/^[/\\]+/, ''));
+    head = up;
+  }
+  return abs;
+}
+
 const absOf = (raw, cwd) => {
   const p = norm(raw);
-  return isAbsolute(p) ? pathResolve(p) : pathResolve(cwd, p);
+  return longName(isAbsolute(p) ? pathResolve(p) : pathResolve(cwd, p));
 };
 
 // 'owned' | 'denied' | 'unknown'. Unknown is always an allow.
@@ -411,6 +587,18 @@ const looksLikeFile = (t) => /\.[A-Za-z0-9]{1,12}$/.test(t) && !t.startsWith('-'
 // that `a\ b.txt` splits into two words and its target is lost — a miss, which is the direction
 // this file errs in everywhere else.
 //
+// EXCEPT INSIDE `"…"`, WHERE A BACKSLASH ESCAPES THE QUOTE — and that is a different claim from the
+// paragraph above, not a retraction of it. The paragraph is about an UNQUOTED `C:\temp\x.ts`, which
+// is what a person types on this platform and which stays untouched. Inside double quotes bash
+// escapes exactly `" \ ` $` and nothing else, and codeMask() has always read it that way; words()
+// did not, and the two readings drifting apart is what this file warns about everywhere. Measured
+// 2026-08-13, and it is not cosmetic — `bash -c "bash -c \"bash -c 'echo x > src/app.ts'\""` ALLOWED
+// and wrote the file (bash 5.2), while the header promises a third wrapper is refused. The cause was
+// here: the `"` of the `\"` closed the quote, so the whole nested script was shredded into
+// `bash -c \bash`, a segment containing no write, and the depth cap was never reached. It is now one
+// word again and the cap fires, naming nothing, exactly as the header says. `"C:\temp\x.ts"` is
+// unchanged: `\t` is not one of the four characters bash escapes in a double-quoted word.
+//
 // `spans`, WHEN PASSED, is filled with each word's START OFFSET IN `seg`. Only the shell-wrapper
 // branch needs it, to ask codeMask() whether the verb it found is code the shell runs or prose that
 // mentions one. It is an optional out-parameter rather than a second splitter for the reason this
@@ -421,6 +609,7 @@ function words(seg, spans) {
   for (let i = 0; i < seg.length; i++) {
     const c = seg[i];
     if (q) {
+      if (q === '"' && c === '\\' && /["\\`$]/.test(seg[i + 1] || '')) { cur += seg[++i]; continue; }
       if (c === q) q = null; else cur += c;
       continue;
     }
@@ -580,6 +769,18 @@ const SHELL_OPT_VALUE = /^(?:-o|\+o|--rcfile|--init-file)$/;
 const MAX_NEST = 2;
 const WHY_NEST_DEPTH = 'shells nested deeper than the scan will follow';
 
+// `eval` RUNS WHAT ONE ROUND OF SHELL PARSING ALREADY CHEWED. Its arguments reach it with the outer
+// shell's escapes consumed, so an escaped metacharacter is a live metacharacter by the time eval
+// executes the string. Measured in bash 5.2 rather than reasoned about:
+//     $ printf 'orig\n' > src/app.ts ; eval echo written \> src/app.ts ; cat src/app.ts
+//     written
+// The guard allowed it, because words() leaves a backslash alone (see the note there — an unquoted
+// `C:\temp\x.ts` is what people type on this platform) and codeMask() then marks a `\>` as literal,
+// so the redirect was invisible. Undoing the escape is therefore correct HERE AND ONLY HERE, where
+// the string is about to be re-parsed; the class is the shell metacharacters and nothing wider, so a
+// Windows path and a quote inside an eval'd script survive untouched.
+const unescapeMeta = (s) => s.replace(/\\([>&|;<()])/g, '$1');
+
 // Every inline script this segment hands to a shell, with the OFFSET OF ITS VERB in the segment so
 // the caller can ask codeMask() whether that verb is code. A shell given a FILE returns nothing: it
 // runs a file this guard cannot see, which is the same allow `node scripts/gen.js` already gets.
@@ -591,7 +792,7 @@ function nestedScripts(seg) {
     // `eval` concatenates ALL its arguments and executes the result, so the script is the rest of
     // the segment joined — and nothing after it can be a separate invocation.
     if (EVAL_VERB.test(toks[i])) {
-      const script = toks.slice(i + 1).join(' ').trim();
+      const script = unescapeMeta(toks.slice(i + 1).join(' ').trim());
       if (script) out.push({ script, at: spans[i] });
       break;
     }
@@ -601,8 +802,24 @@ function nestedScripts(seg) {
       if (a === '--') break;                                   // what follows is a FILE
       if (SHELL_OPT_VALUE.test(a)) { j++; continue; }
       if (INLINE_SCRIPT_FLAG.test(a)) {
-        if (toks[j + 1]) out.push({ script: toks[j + 1], at: spans[i] });
-        i = j + 1;
+        // THE `-c` DOES NOT SWALLOW THE OPTION AFTER IT. Reading the very next word as the script
+        // made `bash -c -x "echo x > src/app.ts"` re-enter `-x` — a segment with no write in it —
+        // while `bash -x -c "…"` denied, one word's order between a catch and a miss. Measured in
+        // bash 5.2 before it was believed: `bash -c -x "echo written > src/app.ts"` exits 0 and
+        // creates the file, so bash goes on reading options and takes the first NON-option word as
+        // the command string. The walk does the same, stepping over the value-taking options
+        // exactly as the outer loop does. This is not the `-cx` CLUSTER, which is a separate miss
+        // and stays declared one screen up: there the `c` is not the last letter of its word.
+        let k = j + 1;
+        while (k < toks.length) {
+          const b = toks[k];
+          if (b === '--') { k++; break; }
+          if (SHELL_OPT_VALUE.test(b)) { k += 2; continue; }
+          if (b.length > 1 && (b.startsWith('-') || b.startsWith('+'))) { k++; continue; }
+          break;
+        }
+        if (toks[k]) out.push({ script: toks[k], at: spans[i] });
+        i = k;
         break;
       }
       if (a.startsWith('-') || a.startsWith('+')) continue;     // some other option
@@ -833,7 +1050,19 @@ const HEREDOC_DELIM = /^[A-Za-z_]\w*$/;
 // still skipped because the `>` itself sits at a non-code offset, which is a fact about the operator
 // and not about what follows it. Reading a quoted word as a target and reading a quoted `>` as an
 // operator are different questions, and only the second one was ever the bug.
-const REDIRECT = /(?:^|[^0-9&>])(?:&>>?|\d*>>?\|?|\d*>&)\s*(?!&)(?:"([^"\n]+)"|'([^'\n]+)'|([^\s;&|<>'"]+))/g;
+//
+// AND THE BARE RUN STOPS AT A CLOSING `)` OR A BACKTICK, because those END A WORD in the shell the
+// same way a space does. This is the whole of the header's `$( … > src/app.ts)` claim, which was
+// FALSE when measured on 2026-08-13 — every one of these ALLOWED and wrote the file in bash 5.2:
+//     echo $(echo written > src/app.ts)      echo "$(echo written > src/app.ts)"
+//     x=$(echo written > src/app.ts)         `echo written > src/app.ts`
+// The mask was never the problem and the claim's reasoning was right: a command substitution IS
+// re-entered by codeMask() and that `>` really does sit at a code offset. The target class was the
+// problem. `[^\s;&|<>'"]+` swallowed the closing `)`, so the target read as `src/app.ts)`, which has
+// no extension at its end and fails the candidacy test — the write vanished one step AFTER the
+// header's sentence stops. `)`, `(` and `` ` `` cannot appear in an unquoted filename anyway: bash
+// rejects `echo x > a)b.txt` as a syntax error, so nothing that was a target before stops being one.
+const REDIRECT = /(?:^|[^0-9&>])(?:&>>?|\d*>>?\|?|\d*>&)\s*(?!&)(?:"([^"\n]+)"|'([^'\n]+)'|([^\s;&|<>'"()`]+))/g;
 
 // A heredoc operator at `i`, or null: `<<EOF`, `<<-EOF`, `<< 'EOF'`, `<<"END"`. `<<<` is a
 // here-string and not one. An unquoted delimiter must be a plain word, which keeps `$((a<<2))` from
@@ -927,21 +1156,69 @@ function codeMask(cmd) {
   return mask;
 }
 
-// The same split the segment loop has always used, carrying each segment's offset in the command so
-// a match inside one can be asked whether it is code.
+// The split the segment loop has always used, carrying each segment's offset in the command so a
+// match inside one can be asked whether it is code.
+//
+// AND IT ASKS THAT QUESTION OF ITSELF NOW — RULING, 2026-08-13, and it is the root cause behind most
+// of a fresh evaluator's twenty-one bypasses. A separator is a separator only where the shell is
+// READING CODE, exactly as a `>` is a redirection only there. This splitter was a bare regex over
+// the raw command, so ONE QUOTED separator broke a command into fragments in which no branch could
+// see a whole invocation any more. The redirect, tee and interpreter branches were immune because
+// they already consult codeMask(); cp/mv, the in-place edit and the shell wrapper were not, because
+// they read WORDS out of a segment and the segment had already been cut in half underneath them.
+// Every one of these ALLOWED and every one was verified as a real write in a scratch tree first:
+//     sed -i 's|SRC|DST|' src/app.ts        <- THE CANONICAL SED IDIOM, one character from a control
+//     sed -i 's;a;b;' …   's&&a&&b&&' …   's||a||b||' …   and a newline-delimited script
+//     perl -pi -e 's|a|b|' src/app.ts       cp "/c/temp/a;b.ts" src/app.ts
+//     bash -c "echo 'a|b' > src/app.ts"     cp /c/temp/a.ts src/app.ts # x|y
+// against the controls `sed -i 's/a/b/' src/app.ts`, `cp /c/temp/a.ts src/app.ts` and
+// `bash -c "echo x > src/app.ts"`, which all denied.
+//
+// IT REUSES THE MASK, IT DOES NOT MINT A SECOND ONE. Two implementations of "is this offset code" is
+// how the two drift apart, which is the lesson this file has already written down three times — for
+// the in-place shape test, for the word splitter's spans, and for the wrapper verb. The caller
+// computes codeMask(cmd) once and hands it in.
+//
+// A `#` AT A CODE OFFSET ENDS THE SEGMENT, for the same reason and it is the same bug: everything
+// after it is a comment the shell never runs, and reading it as a command is the "prose read as
+// code" failure this file has two field incidents from. It must START A WORD to be a comment —
+// `curl http://x/#frag` and `git commit -m "fix #123"` are not comments, and bash agrees — so the
+// character before it must be whitespace, a separator, or nothing.
 //
 // ONE THING IS NOT A PIPE: the `|` of a `>|` noclobber-override redirect. It is the second character
 // of a single redirection OPERATOR, and splitting there cut `echo hi >| src/app.ts` into `echo hi >`
 // and ` src/app.ts` — an operator with no target and a target with no operator, so the write was
 // invisible. Verified in bash 5.2 before it was believed: `echo hi >| c.txt` creates c.txt, and
 // `(echo hi >| f.txt)` writes rather than piping. A `|` anywhere else still splits.
-const SEGMENT = /\n|;|&&|\|\||(?<!>)\|/g;
-function segments(s) {
+//
+// A BARE `&` IS STILL NOT A SEPARATOR HERE, unchanged and deliberate: it is what makes
+// `sed -i 's&a&b&' f` one segment, and backgrounding is not a shape this guard reads.
+const COMMENT_LEAD = /[\s;&|(]/;
+function segments(s, isCode) {
   const out = [];
+  const code = (i) => !isCode || isCode[i];
   let start = 0;
-  for (const m of s.matchAll(SEGMENT)) {
-    out.push({ text: s.slice(start, m.index), at: start });
-    start = m.index + m[0].length;
+  let i = 0;
+  while (i < s.length) {
+    if (!code(i)) { i++; continue; }
+    const c = s[i];
+    if (c === '#' && (i === 0 || COMMENT_LEAD.test(s[i - 1]))) {
+      out.push({ text: s.slice(start, i), at: start });
+      let nl = s.indexOf('\n', i);
+      if (nl < 0) nl = s.length;
+      i = nl + 1;
+      start = i;
+      continue;
+    }
+    let len = 0;
+    if (c === '\n' || c === ';') len = 1;
+    else if (c === '&' && s[i + 1] === '&') len = 2;
+    else if (c === '|' && s[i + 1] === '|') len = 2;
+    else if (c === '|' && s[i - 1] !== '>') len = 1;
+    if (!len) { i++; continue; }
+    out.push({ text: s.slice(start, i), at: start });
+    i += len;
+    start = i;
   }
   out.push({ text: s.slice(start), at: start });
   return out;
@@ -1001,7 +1278,7 @@ function scanBash(cmd, cwd, root, depth = 0) {
 
   const isCode = codeMask(cmd);
 
-  for (const { text: seg, at } of segments(String(cmd))) {
+  for (const { text: seg, at } of segments(String(cmd), isCode)) {
     // Redirection. `2>&1` is excluded by the `&` guard and `2>/dev/null` by the candidacy test —
     // /dev/null has no extension, and it is outside every lite root anyway. THE FILE DESCRIPTOR IS
     // PART OF THE OPERATOR, not a reason to look away: `cmd 2> src/app.ts` writes product code

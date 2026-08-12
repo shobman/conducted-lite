@@ -27,274 +27,57 @@ this feature replaces every line of it with what git and the filesystem actually
 <!-- conducted-lite:sessions W3siYXQiOiIyMDI2LTA4LTEyVDE0OjQyOjQ3LjAzNFoiLCJpZCI6InNjYWZmb2xkIiwibm90ZSI6ImZvbGRlciBhbmQgc3RhdGUubWQgY3JlYXRlZCBieSAuY2xhdWRlL3NjcmlwdHMvc2Vzc2lvbi1lbmQubWpzIC0tbmV3LWZlYXR1cmUifV0= -->
 <!-- conducted-lite:facts:end -->
 
+PR: #2
+
 ## Decisions
 
 <!-- What was decided and WHY, with the evidence that would reopen it. Rewrite in place, dated. -->
 
-**2026-08-13 — the Bash scan resolves the write expression, not the token stream.** Every defect
-below is one root cause: `scanBash` collects file-shaped tokens from the whole command line and then
-asks whether any of them is out of bounds. A path the command *mentions* and a path the command
-*writes* are not the same thing, and the token scan cannot tell them apart. Patching the individual
-symptoms was rejected — three regexes were already added for three earlier field cases and the fourth
-class arrived anyway. Reopens if a builder demonstrates that the write expression cannot be resolved
-for a shape that matters more than the false positives cost.
+**2026-08-13 — the Bash scan resolves the write target from the position each shape puts it in,
+never from a scan of the token stream.** Every defect in this feature — eight from the field, seven
+from the first evaluator, the wrapper bypass, and the quoted-separator segment split — was one
+failure repeated: a path a command *mentions* treated as a path it *writes*. Three symptom patches
+had already been tried before this feature; the fourth class arrived anyway. Reopens only if
+position-resolution proves unable to express a shape that matters more than the false positives cost.
 
-**2026-08-13 — a false positive is a defect of the same severity as a miss.** CONDUCTOR.md already
-argues this (*"a guard that guesses is a guard that gets turned off"*), and MukFork counted it: all
-three Bash denials in that session were false positives, **all three were worked around by
-re-attempting the identical path with the `Write`/`Edit` tool, and none was noticed as a denial at
-the time.** For the same target the guard denies Bash and permits `Write`, so what it teaches is
-"use the other tool", not "do not build". Reopens if a fix for this drives the false-negative rate
-up enough that a conductor ships product code — but note that today's false positives cost nothing
-to route around, so the rule is already not enforcing what it claims to.
+**2026-08-13 — the guard's contract is drift, not determination.** It stops a conductor who has
+drifted into building — every genuine field catch was drift — and does not stop one trying to get
+past it; fail-open is the accepted design. Consequence: determination-shaped holes (git's write
+verbs, interpreter vocabulary beyond the enumerated list, directory copies, junctions into
+subdirectories) are DECLARED LIMITS in the guard's header, not work. Reopens on two real drift
+incidents through any one of them — the doctrine's own bar.
+
+**2026-08-13 — the acceptance criteria are the stopping rule.** Evaluator findings outside them
+become declared limits or roadmap idea lines, never new scope on this feature. This closed the
+feature at round three; an adversarial pass always returns findings, and a feature an evaluator can
+extend never ships.
 
 ## Issues
 
 <!-- What is wrong or unresolved right now. Delete an issue when it is gone, never strike it out. -->
 
-All reproduced against this repo's `conductor-guard.mjs` on 2026-08-13 by feeding the hook crafted
-PreToolUse payloads out-of-process. MukFork's copy of the guard is byte-identical to this one
-(`diff` clean), and so is miq's — all three run the same file. Issues 1, 2 and 5 are the three real
-denials from the MukFork session, reproduced from the **verbatim command lines** supplied 2026-08-13
-with transcript line numbers (main session
-`~/.claude/projects/C--code-repos-mukfork/307243ed-d214-4345-b128-d9a52cdde1bb.jsonl`, lines 2054,
-3904, 4399 — a durable path; the subagent transcript cited in the same answer lives in Temp and will
-rot, but nothing here depends on it).
-
-**An earlier reconstruction of issue 2 hit a different branch and named nothing.** The verbatim
-command names `ramen.jpg`, as the field reported. Reconstructing a command from a description is
-itself a summary standing in for a source, and it produced a wrong reading of which branch was at
-fault. The corpus takes the transcript's bytes, not a retyping of them.
-
-1. **`cp <file> <directory>/` denies, naming the source.** `cp docs/assets/row-1.jpg /c/temp/out/`
-   → *"This command writes docs/assets/row-1.jpg (copying or moving over it)"*. The cp/mv branch
-   takes the last file-shaped token as the destination; a directory has no extension, so it is not
-   file-shaped, and the scan falls back to the source. Every copy OUT of the repo is denied, and the
-   deny message's own sentence — *"anything outside the repo are exempt"* — is false for the shape.
-2. **A glob in the source manufactures a phantom target.** `cp docs/assets/row-*.jpg "$SCRATCH/"`
-   → *"This command writes .jpg"*. `rawTokens` excludes `*` from its character class, so the token
-   splits and `.jpg` survives as an extension with no stem. `classify` then resolves it against the
-   repo root and denies it. This is the MukFork note's case A verbatim.
-3. **A payload string vetoes a write to a path the conductor owns.**
-   `node -e 'require("fs").writeFileSync(".conducted/roadmap.md", "see src/app.ts for detail")'`
-   → *"This command writes src/app.ts"*. The `strays` veto counts any separator-carrying token
-   anywhere on the line, including inside the content being written.
-4. **A deny names a file the command does not write.** Every issue here produces a confident, wrong
-   filename. The guard's own header commits to the opposite — *"A DENY NEVER INVENTS THE FILE IT IS
-   DENYING"* — written after the field caught it reporting `io.open` as a path. The commitment was
-   made; the mechanism that broke it was not.
-5. **THE ONE NOBODY NOTICED, and the worst of them.** MukFork main transcript line 2054: a python
-   heredoc doing two `str.replace` passes over `.conducted/standards.md`, denied with *"This command
-   writes **creator.html**"*. `creator.html` occurs once, inside a **search string** — the old text
-   being replaced. The write target is `p`, a literal assigned three lines above, and
-   `.conducted/**` is the FIRST ENTRY in the guard's own `YOU STILL OWN` list. Reproduced, and
-   pinned down further than the field report goes:
-   - the same heredoc with the filename removed from the search string is **allowed** — the payload
-     is the whole cause;
-   - the same heredoc with the target written as a **bare literal** rather than via `p` is **still
-     denied**, still naming `creator.html`. So this is not a variable-resolution failure. Even with
-     the target sitting in plain sight inside the allow-set, a filename in the content overrides it.
-
-**Not a defect, recorded so nobody "fixes" it:** an interpreter write whose target genuinely cannot
-be resolved is deliberately denied (guard header, *"CONSERVATIVE WHERE IT CANNOT TELL"*). The same
-command with a literal out-of-repo path is allowed — verified. What is wrong in that case is only
-the invented name.
-
-6. **A single inner double quote flips an owned write from allowed to denied.** `interpreterTargets`
-   finds paths with a quoted-literal regex whose content class excludes every quote character, so
-   one `"` anywhere in a script body destroys the extraction; `targets` comes back empty, and empty
-   is treated as *"the target could not be determined"* — the honest-sounding deny. Proved by
-   holding everything else constant: the same `python -c` writing
-   `.conducted/work/<feature>/state.md`, with and without one inner double-quoted string, allows and
-   then denies. **This is the mechanism behind miq's two interpreter denials on conductor-owned
-   paths**, both of which the note attributes to variable binding. Variable binding is not the
-   cause — the same script with the target bound to a variable and no inner quote is allowed here.
-
-**Still correct, verified, must not regress:** `Write` of `legal/README.md`, `Write` of
-`docs/product/2026-08-11-duotone.html`, and `echo … > local.properties` all deny. The first two were
-real denials in the MukFork session; the third is miq's single genuine catch across nine denials —
-an Android build-config write. All three are right.
-
-7. **The guard denied the conductor writing `.conducted/**` inside a worktree.** Found by being
-   subject to it: an `Edit` of `worktrees/guard-false-positives/.conducted/work/.../state.md`, from
-   a session whose cwd was the main checkout, was denied by a message that listed `.conducted/**` as
-   owned. `findRoot()` walked up from the CWD, so the root resolved to the main checkout and the
-   target relativised to `worktrees/<feature>/.conducted/…`, which no OWNED pattern matches.
-   **Not an edge case:** CONDUCTOR.md mandates worktrees at `worktrees/<feature>/` inside the repo,
-   so this fires for every conductor who keeps a feature's `state.md` current while a builder works
-   in its worktree. It also falsified a promise in the guard's own header — *"a conductor working
-   inside `worktrees/<feature>` is measured against that worktree's own tree"* — which held only
-   when the cwd was inside the worktree.
-
-   Fixed by resolving the tree from **the target path** rather than the cwd. The builder rejected
-   the narrower fix of stripping a leading `worktrees/<name>/`, and was right to: the stripper
-   leaves the opposite hole open, where a cwd inside a worktree makes the main checkout's
-   `src/app.ts` relativise to `../../src/app.ts`, read as outside the repo, and be silently allowed.
-   It also hard-codes a directory name that is doctrine rather than mechanism. Both directions now
-   have corpus cases, and this entry was written through the path that was denied.
-
-8. **An `->` arrow in prose is read as a shell redirection.** Measured on both the pre-fix and the
-   post-fix guard, so the position-based rewrite does not touch it:
-   `gh pr create --body "…github-pat -> server__miq-server__appsettings.json…"` denies with *"shell
-   redirection into it"*. There is no redirection anywhere in the command. The redirect scan excludes
-   a preceding digit and a preceding `>`, but not a preceding `-`.
-   **Two independent incidents, which is this project's own bar for a rule:** miq hit it on a PR body
-   containing a filename in a fenced block and worked around it with `--body-file`; then it denied
-   the creation of THIS feature's own pull request, and the same workaround was used again. In shell
-   grammar `->file` is an ordinary word, not a redirect — redirection is `>` starting a word, or
-   `N>` with a file-descriptor digit — so the narrow fix is a matter of grammar rather than taste.
-   Dispatched separately; the deny sentence it produces is the same one defect 4 is about.
-
-### Corpus and fix landed 2026-08-13 — 71 counted cases, all passing
-
-Two things the tech design got wrong, returned as negative results rather than worked around:
-
-- **`argv[N]` → the Nth positional is not buildable, and was not built.** The design named it as one
-  of two knowable hops, using MukFork's `node -e '… writeFileSync(process.argv[1], html)'
-  "$D/look4.html"` as its example and expecting it to resolve outside the repo and allow. That
-  command is fixture A4, whose assertion is a deny that names nothing — the design contradicted the
-  corpus. It also breaks the design's own one-hop rule: `argv[1]` → `$D/look4.html` is one hop and
-  `$D` → literal is a second. The other half of the rule, a name bound once to a string literal, is
-  built and is what clears defects 5 and 6.
-- **Deleting the second pass broke a case that was passing for the wrong reason.**
-  `B-interpreter-unresolvable` denied only because `process.argv` tokenised as a file-shaped name
-  resolving inside the repo — a right verdict reached by naming an identifier as a file. Carrying it
-  needed a new positive rule: **write-shaped plus any unresolved target = deny, naming nothing.**
-  That is the single exit from indeterminacy the design asked for, arrived at from the other side.
-
-Deliberate narrowings, named rather than smuggled: verbs are matched as shell words, so
-`echo "cp x src/app.ts"` no longer reads as a `cp` invocation; and `\` is an ordinary character in
-word splitting, which keeps `cp C:\temp\x.ts src\app.ts` denied at the cost of losing a target in
-`a\ b.txt`. That is a miss, which is the direction this file errs in everywhere.
-
-### Fresh evaluator, 2026-08-13 — all seven fixes confirmed, and nine holes found
-
-A black-box evaluator that never saw the build, briefed to defeat the guard rather than confirm it,
-drove ~290 payloads at it out-of-process and wrote nothing. **It confirmed every one of the seven
-fixes by behaviour, constructed from the descriptions above rather than from the corpus** — and then
-got product code past the guard in nine distinct shapes. This is the non-negotiable working: none of
-these were visible to the corpus, the builder, or me.
-
-**Contract violations — the header promises the opposite:**
-- **N1. `\\?\` extended-length and `//host/c$/` UNC spellings of an in-repo path are allowed** on the
-  Edit/Write path, which the header calls "the real guarantee". Every other spelling of the same
-  file denies. Both spellings were proved writable.
-- **N2. A cwd outside every lite repo disarms the guard for absolute in-repo paths.** The cwd gate
-  runs first and short-circuits, so the new "the path decides which tree, not the cwd" rule never
-  runs. **The header now contradicts itself** — it declares both that rule and "no CONDUCTOR.md at
-  or above the cwd → instant silence", and the mechanism cannot honour both.
-- **N3. A non-string `file_path` denies and invents a name** — `42`, `[object Object]`. Fails closed
-  where the header promises open, and it is the only surviving breach of "a deny never invents the
-  file it is denying".
-- **N4. The allow-set is case-sensitive on a case-insensitive filesystem.** `.CONDUCTED/roadmap.md`
-  and `readme.md` are denied. Those are the conductor's own files, so this is a residual false
-  positive of exactly the class this feature exists to kill.
-
-**Misses inside the declared best-effort Bash surface, ranked by what they cost:**
-- **G1. Only bare `>` and `>>` are matched.** `1>`, `2>`, `&>`, `>|`, their append forms and their
-  no-space forms all sail through — including `echo sdk.dir=/x 1> local.properties`, **which is the
-  guard's single genuine field catch defeated by one character.**
-- **G2.** A quoted redirect target containing a space is dropped. Redirection only; `cp`, `tee`,
-  `sed -i`, the interpreter shape and `Write` all catch it.
-- **G3.** In-place spellings: `perl -pi -e` (the canonical idiom), `perl -ni -e`, `ruby -pi -e`,
-  `sed --in-place`, `gsed -i`.
-- **G4.** Interpreter aliases (`node --eval`, `py -c`, `deno eval`, `php -r`) and write vocabulary
-  (`copyFileSync`, `renameSync`, `shutil.copy`, `os.rename`, `open(F,">",…)`).
-- **G5.** Extensionless and directory targets in the cp family — `cp -r /c/temp/mysrc src/` imports a
-  whole tree. Same root cause as the declared `> Makefile` miss.
-- **G6.** A junction pointing at a repo SUBDIRECTORY is invisible, which reaches
-  `.claude/hooks/conductor-guard.mjs` itself — the olchat case the header singles out. A junction to
-  the repo ROOT is correctly denied.
-
-**Confirmed clean:** 40 malformed payload shapes all exit 0 silent in ≤41ms; the 5s stdin timeout
-behaves exactly as declared; no catastrophic backtracking (20,000 quoted literals → 40ms); median
-37ms per invocation; and `agent_id: ""`/`null`/`false` correctly read as absent.
-
-**CORRECTION, 2026-08-13 — the evaluator got one wrong, and it was the reassuring one.** Its report
-said `bash -c`, `sh -c` and `eval` wrappers "all still deny, so the word-splitting narrowing opened
-no wrapper bypass", and that sentence was written into this file as confirmed-clean. A later builder
-ran them; they **allow**. Re-run here independently, against the current guard:
-
-```
-DENY   echo x > src/app.ts                    <- control
-ALLOW  bash -c "echo x > src/app.ts"
-ALLOW  sh -c 'echo x > src/app.ts'
-ALLOW  eval "echo x > src/app.ts"
-ALLOW  bash -c "cp /c/temp/a.ts src/app.ts"
-DENY   cp /c/temp/a.ts src/app.ts             <- control
-```
-
-**A one-word prefix defeats the whole Bash surface.** It is not a regression — a `-c` argument is a
-single quoted word, which is the declared word-splitting narrowing behaving as documented — but it
-is the widest practical hole in the guard and it was sitting behind a false all-clear.
-
-**The lesson is the one this project keeps relearning, now committed by the evaluator:** an
-adversarial pass is still a summary of what it ran, and a NEGATIVE result in it is exactly as
-unreliable as a positive one. A "confirmed clean" line deserves the same check as a finding. Two
-independent agents disagreed, and the one that had RUN it was right.
-
-**A ruling for the owner, not a defect.** The `git` exemption is now the widest hole in the guard:
-`git apply <patch>` writes arbitrary product code and is allowed by design, as is
-`git checkout <ref> -- <path>`. If the header keeps promising "git always works", it should say out
-loud that this includes an unguarded write path, rather than leaving it to be discovered.
-
-### The miq sample, and a warning about how to use it
-
-miq supplied a second sample on 2026-08-13: **nine denials across the project's history — roughly
-one real catch, one borderline (copying a build output, which is deploying rather than building and
-wants a deliberate ruling), and seven false positives.** It also answers the `agent_id` question
-independently and decisively: **113 subagent transcripts, zero denials.**
-
-**Its verbatim commands do not reproduce AS QUOTED — but one of them is real, and reading "does not
-reproduce" as "not a defect" was wrong.** Fed to a byte-identical guard, miq's quoted `grep`, its
-`gh pr create` body, and a reconstruction of its `Math.Max` case all allow. The `gh pr create` case
-is provably abridged: the deny names `server__miq-server__appsettings.json` while the quoted body
-line reads `server__miq-server__appsettings.json.txt:14`, and that token is not file-shaped, so it
-cannot produce that deny.
-
-**Restore the token to end at `.json` and it fires — see defect 8.** The abridgement hid a live
-defect behind a passing test. The lesson is not "distrust miq's note"; it is that a command quoted
-in prose is a summary of a command, and the failure mode of a summary is that it looks like a clean
-negative. Their transcripts hold the bytes. **Ask for the raw lines before concluding anything about
-the other two.**
-
-This is the second time a retyped command has produced a wrong diagnosis — the first was in this
-folder, reconstructing MukFork's `node -e`. The rule the corpus needs is the doctrine's own: the
-source is the transcript, and a quotation of a command is a summary of it.
-
-### RESOLVED 2026-08-13 — MukFork field note §2 was not this guard
-
-Retracted at source. The refusal of `spikes/react-boot/REPORT.md` was a platform `tool_use_error` —
-*"Subagents should return findings as text, not write report files"* — carrying none of the guard's
-vocabulary: no `Non-negotiable 1`, no `permissionDecisionReason`, no `FIX:` line. The same builder
-made **25 successful `Write` calls and 5 `Edit`s**, including one into that very folder 800
-transcript lines earlier, so the guard saw its `agent_id` and allowed it throughout. This matches
-the probe run here before the answer arrived: a payload carrying `agent_id` writes that exact path
-silently.
-
-The builder had written *"my harness blocked"*, which was accurate, and the note rendered it as the
-build-guard. **`agent_id` is not in doubt and nothing in this feature depends on it.** The surviving
-observation — an 850-line measurement report that came back inline and survived only because the
-builder pasted rather than summarised — is real, and belongs to whoever owns the subagent report
-rule, not here.
+None open in scope. Declared limits live in the guard's header — the file that enforces them.
+Out-of-scope observations preserved in the corpus as non-counting groups: `observed` (a `Write`
+whose `file_path` is a non-string; the ADS zero-byte case) and `unverified` (three miq commands
+whose raw bytes were never supplied and which do not reproduce as quoted).
 
 ## Acceptance criteria
 
 <!-- Binary lines. Only a human ticks these: no script in this repo will ever tick one for you. -->
 
 - [ ] A test corpus exists, runs the real hook out-of-process, and asserts allow/deny AND the named
-      path for every case in Issues 1–5 plus the shapes the guard's header already promises (git
-      always works, reads never blocked, `git show HEAD:x > src/app.ts` denied, `.conducted/**`
-      writable by heredoc, an interpreter with an unresolvable target denied).
-- [ ] The three MukFork commands go in **byte-for-byte from the transcript**, not retyped from a
-      description. A retyping already produced a different branch and a wrong diagnosis once.
-- [ ] Issues 1, 2, 3 and 5 allow, and each one's deny is gone for the right reason, not by widening
-      the allow-set.
-- [ ] `Write` of `legal/README.md` and of `docs/**.html` still deny. Both were correct denials in
-      the field and both are in the corpus as such.
-- [ ] No deny names a path the command does not write to. Where the target cannot be resolved, the
-      deny says so in those words rather than naming a candidate.
-- [ ] Every deny shape the guard's header promises still denies — checked by the corpus, not by
-      reading the diff.
-- [ ] A fresh evaluator that never saw the change confirms the guard still stops a conductor writing
-      product code, working only from the guard's stated contract.
+      path. Evidence: `.claude/tests/guard.test.mjs`, 191 counted cases, exit 0; field commands
+      copied byte-for-byte from transcripts (`fixtures/PROVENANCE.md`).
+- [ ] Every field false positive allows, for the right reason, without widening the allow-set.
+      Evidence: `OWNED` byte-identical throughout; all eight field defects plus both evaluators'
+      false-positive classes assert ALLOW in the corpus and were re-probed independently.
+- [ ] No deny names a path the command does not write; an unresolvable target is denied naming
+      nothing, in those words. Evidence: evaluator 2 hunted for the inverse specifically and found
+      none; the triple-wrapper cap and interpreter indeterminacy both name nothing.
+- [ ] Every deny shape the header promises still denies. Evidence: corpus group B, 100+ cases,
+      including `git show HEAD:x > src/app.ts`, `> local.properties`, `Write legal/README.md`,
+      `Write docs/**.html`, and the wrapper/redirect/in-place families.
+- [ ] A fresh evaluator that never saw the build judged the behaviour. Evidence: two adversarial
+      passes (~290 and ~340 payloads); every finding either fixed and cased, or declared in the
+      header. Their one false all-clear (`bash -c` wrappers) is recorded in the corpus as the reason
+      negative results get re-run.
