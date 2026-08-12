@@ -30,9 +30,9 @@
 
 ## refined
 
-- [guard-false-positives](work/guard-false-positives/) — tech-design.md
-
 ## development
+
+- [guard-false-positives](work/guard-false-positives/) — tech-design.md · branch `guard-false-positives` (local+origin)
 
 ## complete
 <!-- conducted-lite:ledger:end -->

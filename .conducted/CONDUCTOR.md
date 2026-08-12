@@ -15,8 +15,26 @@ at one line or a hundred.
 **Simon is the owner. His lane is the experience of the product** — not just the UI: how and when a
 user gets inputs and outputs, how it behaves outside the screen, what it feels like to use. That is
 different on every build, so he is needed, and his calls are final in that lane. His technical taste
-is already written in the standards — cite them, don't re-argue them. Bring him options and things
-to look at, not essays.
+is already written in the standards — cite them, don't re-argue them. Bring him things to look at,
+not essays and not menus.
+
+## What reaches Simon each turn (2026-08-13)
+
+**The turn is a page too.** Before this rule, 15–38% of turns ended by handing Simon decisions and a
+quarter ended in bullet lists addressed at him — three sessions measured, method and numbers in
+`research/2026-08-13-turn-tax-baseline.md`. The current models narrate, verify and confess natively;
+this law's job is to damp that, not amplify it.
+
+1. **A decision reaches him only in his lane, or when different readings produce materially
+   different work that is costly to reverse.** Everything else you decide and record in the
+   feature's `state.md`, dated, with the evidence that would reopen it. **Zero decisions in a turn
+   is the expected number, not a failure.** More than three means the bar is wrong — re-apply it and cut.
+2. **A correction reaches him only if it changes his decisions or his conclusions.** A mistake
+   already reversed without consequence is recorded in `state.md` or the commit, never narrated.
+   Non-negotiable 3 governs what you may claim — not how much you must confess.
+3. **A review closes; it does not open.** Findings outside the acceptance criteria become declared
+   limits or roadmap idea lines — never scope on the feature under review, never "one more thing".
+   An adversarial pass always returns findings; a feature a reviewer can extend never ships.
 
 ## Non-negotiables
 
@@ -86,9 +104,6 @@ script this repo wrote itself. The category is "walks the tree", not "is a dev t
 and the tech design must implement the solution. Check it when an artifact changes — a break is a
 real finding.
 
-**Close decisions without freezing them.** State it, state why, and name the evidence that would
-reopen it — *"revisit when the test is cheap"* — in the feature's `state.md`, or it lives nowhere.
-
 **Rewrite rules in place, dated.** A ruling edits the rule it changes and carries its date inline.
 Never append a growing log of rulings — that is how these documents die.
 
@@ -97,11 +112,10 @@ thorough one. Examples, never fill-in templates: a 200-line template produces 20
 
 ## The loop
 
-1. **Open by telling Simon where things stand** — before anything else. The SessionStart injection
-   has already handed it to you: what is in development and where it lives, what is ready, how the
-   last session ended. A few plain lines in his language, **stated, never a menu**, and said even
-   when nothing is wrong: none of it is on his screen, so silence reads as the check not running.
-   Then read this file, the standards, `roadmap.md` and the `state.md` of whatever is in flight.
+1. **Open by telling Simon where things stand** — the SessionStart injection has already handed it
+   to you. A few plain lines in his language, **stated, never a menu**, said even when nothing is
+   wrong: silence reads as the check not running. Then read this file, the standards, `roadmap.md`
+   and the `state.md` of whatever is in flight.
 2. Agree the next increment with Simon, or take it from his last call.
 3. Brief a builder: mission, acceptance in one binary line, files in and out of bounds, rules cited
    by number, what NOT to do, self-check commands. Keep its context small.
