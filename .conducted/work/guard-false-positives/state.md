@@ -133,6 +133,18 @@ an Android build-config write. All three are right.
    It also hard-codes a directory name that is doctrine rather than mechanism. Both directions now
    have corpus cases, and this entry was written through the path that was denied.
 
+8. **An `->` arrow in prose is read as a shell redirection.** Measured on both the pre-fix and the
+   post-fix guard, so the position-based rewrite does not touch it:
+   `gh pr create --body "…github-pat -> server__miq-server__appsettings.json…"` denies with *"shell
+   redirection into it"*. There is no redirection anywhere in the command. The redirect scan excludes
+   a preceding digit and a preceding `>`, but not a preceding `-`.
+   **Two independent incidents, which is this project's own bar for a rule:** miq hit it on a PR body
+   containing a filename in a fenced block and worked around it with `--body-file`; then it denied
+   the creation of THIS feature's own pull request, and the same workaround was used again. In shell
+   grammar `->file` is an ordinary word, not a redirect — redirection is `>` starting a word, or
+   `N>` with a file-descriptor digit — so the narrow fix is a matter of grammar rather than taste.
+   Dispatched separately; the deny sentence it produces is the same one defect 4 is about.
+
 ### Corpus and fix landed 2026-08-13 — 71 counted cases, all passing
 
 Two things the tech design got wrong, returned as negative results rather than worked around:
@@ -162,13 +174,18 @@ one real catch, one borderline (copying a build output, which is deploying rathe
 wants a deliberate ruling), and seven false positives.** It also answers the `agent_id` question
 independently and decisively: **113 subagent transcripts, zero denials.**
 
-**But its verbatim commands do not reproduce, and the corpus must not be built from them.** Fed to a
-byte-identical guard, miq's quoted `grep`, its `gh pr create` body, and a reconstruction of its
-`Math.Max` case all **allow**. At least one is provably abridged: the deny names
-`server__miq-server__appsettings.json` while the quoted body line reads
-`server__miq-server__appsettings.json.txt:14`, and that token cannot produce that deny. The note is
-a faithful summary; the commands in it have been tidied, and tidying a command changes which branch
-it hits. Their transcripts hold the bytes. **Ask for the raw lines before writing those cases.**
+**Its verbatim commands do not reproduce AS QUOTED — but one of them is real, and reading "does not
+reproduce" as "not a defect" was wrong.** Fed to a byte-identical guard, miq's quoted `grep`, its
+`gh pr create` body, and a reconstruction of its `Math.Max` case all allow. The `gh pr create` case
+is provably abridged: the deny names `server__miq-server__appsettings.json` while the quoted body
+line reads `server__miq-server__appsettings.json.txt:14`, and that token is not file-shaped, so it
+cannot produce that deny.
+
+**Restore the token to end at `.json` and it fires — see defect 8.** The abridgement hid a live
+defect behind a passing test. The lesson is not "distrust miq's note"; it is that a command quoted
+in prose is a summary of a command, and the failure mode of a summary is that it looks like a clean
+negative. Their transcripts hold the bytes. **Ask for the raw lines before concluding anything about
+the other two.**
 
 This is the second time a retyped command has produced a wrong diagnosis — the first was in this
 folder, reconstructing MukFork's `node -e`. The rule the corpus needs is the doctrine's own: the
