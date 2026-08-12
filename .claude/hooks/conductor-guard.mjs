@@ -97,7 +97,10 @@
 // proved what happens otherwise: a message containing `<repo>_<feature>` read as `>` redirecting
 // into `_`, and the commit was denied by a guard whose own header promises git always works. The
 // exemption is that list and not git as a whole, so `git show HEAD:x > src/app.ts` is still a write
-// and still denied. Reads, builds, tests and installs are
+// and still denied. THE SAME LESSON, GENERALISED: a `>` is a redirection only where the shell is
+// reading CODE, so the scan skips one inside a quoted word or a heredoc body — that is what a `gh pr
+// create` body is, and prose in one denied two pull requests before it was fixed. See codeMask().
+// Reads, builds, tests and installs are
 // never touched. Scratch and prose extensions (.md .txt .log .out .tmp .diff .patch) are exempt on the
 // Bash path but not on the Edit/Write path — asymmetric on purpose: a Bash deny kills a whole
 // chained command including the reads after it, so its false-positive cost is much higher.
@@ -492,6 +495,154 @@ function writeCallTargets(cmd) {
   return out;
 }
 
+// ------------------------------------------ QUOTING, because `>` is not a redirect wherever it sits
+// A `>` is a redirection only where the shell is READING CODE. Inside a quoted word or a heredoc
+// body it is a character in a piece of prose, and the field caught this branch reading prose as a
+// write twice: once from miq — a filename in a fenced block in a `gh pr create` body — and once from
+// the conductor opening this very branch's pull request. Both were this shape,
+//
+//     gh pr create --title "x" --body "$(cat <<'EOF'
+//     findings: github-pat -> server__miq-server__appsettings.json  (in the tarball)
+//     EOF
+//     )"
+//
+// denied as "writes server__miq-server__appsettings.json (shell redirection into it)" with no
+// redirection anywhere in the command. Both were worked around by writing the body to a scratch file
+// and passing --body-file, which is the worst outcome a guard can produce: the rule was not obeyed,
+// it was routed around, and the lesson taught was "switch tools when the hook complains".
+//
+// THE FIX IS NOT "A `-` BEFORE THE `>` MAKES IT AN ARROW". That was the first theory — that `->file`
+// is an ordinary word because a redirection is `>` or `N>` STARTING a word — and it is measurably
+// wrong. Run it in a real shell before believing either version:
+//
+//     $ echo hello->out.txt ; cat out.txt      ->  hello-      (out.txt was created)
+//     $ echo a-->b.txt      ; cat b.txt        ->  a--         (so was b.txt)
+//     $ echo x=>c.txt       ; cat c.txt        ->  x=          (and c.txt)
+//     $ echo "a -> d.txt"   ; ls d.txt         ->  no such file
+//
+// `>` is a METACHARACTER: it delimits the word before it wherever it appears in code, so `foo->bar`
+// really does redirect into `bar`. Excluding a preceding `-` would therefore have cured the reported
+// symptom by accident while opening a hole — `echo x->src/app.ts` writes product code — and a guard
+// that trades a real catch for a false one has moved the error, not removed it. The fourth line is
+// the actual discriminator, and it is QUOTING: in every field case the arrow sat inside a `<<'EOF'`
+// body inside a `"…"` argument, which is why none of them was ever a redirect.
+//
+// So: one pass over the command marks which OFFSETS are unquoted shell code, and a `>` at an offset
+// that is not code is not an operator. Only the OPERATOR's position is tested — a target may be
+// quoted (`> "src/app.ts"` is a real write and stays caught), and that asymmetry is the point.
+// Command substitutions are RE-ENTERED, because `"$(git show HEAD:x > src/app.ts)"` is code inside a
+// quoted word and is a genuine write; the header's reason for not exempting git wholesale is this
+// same reason. What cannot be parsed — an unbalanced quote, an unterminated heredoc — marks the
+// remainder as not-code, which loses targets rather than inventing them, the direction this file
+// errs in everywhere else.
+const HEREDOC_DELIM = /^[A-Za-z_]\w*$/;
+
+// A heredoc operator at `i`, or null: `<<EOF`, `<<-EOF`, `<< 'EOF'`, `<<"END"`. `<<<` is a
+// here-string and not one. An unquoted delimiter must be a plain word, which keeps `$((a<<2))` from
+// registering a heredoc named `2` and blanking the rest of the command.
+function heredocAt(s, i) {
+  if (s[i] !== '<' || s[i + 1] !== '<' || s[i + 2] === '<') return null;
+  let j = i + 2;
+  let strip = false;
+  if (s[j] === '-' || s[j] === '~') { strip = true; j++; }
+  while (s[j] === ' ' || s[j] === '\t') j++;
+  let delim = '', quoted = false;
+  while (j < s.length) {
+    const d = s[j];
+    if (d === "'" || d === '"') {
+      quoted = true;
+      j++;
+      while (j < s.length && s[j] !== d) { delim += s[j]; j++; }
+      j++;
+      continue;
+    }
+    if (d === '\\') { j++; if (j < s.length) { delim += s[j]; j++; } continue; }
+    if (/[\s;&|<>()]/.test(d)) break;
+    delim += d;
+    j++;
+  }
+  if (!delim || (!quoted && !HEREDOC_DELIM.test(delim))) return null;
+  return { delim, strip, end: j };
+}
+
+// 1 where the offset is unquoted shell code, 0 where the shell would read a literal character.
+function codeMask(cmd) {
+  const s = String(cmd);
+  const mask = new Uint8Array(s.length).fill(1);
+  const off = (from, to) => { for (let k = from; k < to && k < s.length; k++) mask[k] = 0; };
+  const stack = [{ t: 'code', close: null }];   // top is where the parser is; `close` ends a $( ) or ` `
+  const pending = [];                           // heredocs whose body starts after the next newline
+  let i = 0;
+
+  const consumeBodies = () => {
+    while (pending.length) {
+      const h = pending.shift();
+      while (i < s.length) {
+        let eol = s.indexOf('\n', i);
+        if (eol < 0) eol = s.length;
+        const line = s.slice(i, eol).replace(/\r$/, '');
+        const cand = h.strip ? line.replace(/^\t+/, '') : line;
+        off(i, eol);                            // body line, or the delimiter line: neither is code
+        i = eol < s.length ? eol + 1 : eol;
+        if (cand === h.delim) break;
+      }
+    }
+  };
+
+  while (i < s.length) {
+    const st = stack[stack.length - 1];
+    const c = s[i];
+
+    if (st.t === 'sq') {                        // '…' — everything is literal, including "
+      off(i, i + 1);
+      if (c === "'") stack.pop();
+      i++;
+      continue;
+    }
+
+    if (st.t === 'dq') {                        // "…" — literal, except a substitution re-enters code
+      if (c === '\\') { off(i, i + 2); i += 2; continue; }
+      if (c === '"') { off(i, i + 1); stack.pop(); i++; continue; }
+      if (c === '$' && s[i + 1] === '(') { off(i, i + 2); stack.push({ t: 'code', close: ')' }); i += 2; continue; }
+      if (c === '`') { off(i, i + 1); stack.push({ t: 'code', close: '`' }); i++; continue; }
+      off(i, i + 1);
+      i++;
+      continue;
+    }
+
+    if (c === '\n') { i++; if (pending.length) consumeBodies(); continue; }
+    if (c === '\\') { off(i, i + 2); i += 2; continue; }
+    if (c === "'") { off(i, i + 1); stack.push({ t: 'sq' }); i++; continue; }
+    if (c === '"') { off(i, i + 1); stack.push({ t: 'dq' }); i++; continue; }
+    if (c === '`') {
+      off(i, i + 1);
+      if (st.close === '`') stack.pop(); else stack.push({ t: 'code', close: '`' });
+      i++;
+      continue;
+    }
+    if (c === '$' && s[i + 1] === '(') { stack.push({ t: 'code', close: ')' }); i += 2; continue; }
+    if (c === ')' && st.close === ')') { stack.pop(); i++; continue; }
+    const hd = heredocAt(s, i);
+    if (hd) { pending.push({ delim: hd.delim, strip: hd.strip }); i = hd.end; continue; }
+    i++;
+  }
+  return mask;
+}
+
+// The same split the segment loop has always used, carrying each segment's offset in the command so
+// a match inside one can be asked whether it is code. Splitting is unchanged: only the offsets are new.
+const SEGMENT = /\n|;|&&|\|\||\|/g;
+function segments(s) {
+  const out = [];
+  let start = 0;
+  for (const m of s.matchAll(SEGMENT)) {
+    out.push({ text: s.slice(start, m.index), at: start });
+    start = m.index + m[0].length;
+  }
+  out.push({ text: s.slice(start), at: start });
+  return out;
+}
+
 // Returns { rel, why } for the first clearly-denied target, or null. `rel` is null when the shape is
 // a write but no target could be resolved — a deny that names nothing rather than naming the wrong
 // thing; main() has the sentence for it.
@@ -543,11 +694,16 @@ function scanBash(cmd, cwd, root) {
     if (unresolved) return { rel: null, why: WHY_INTERPRETER };
   }
 
-  for (const seg of String(cmd).split(/\n|;|&&|\|\||\|/)) {
-    // Redirection. `2>&1` and `2>/dev/null` are excluded by the digit/& guards; /dev/null is outside
-    // every lite root anyway, so it classifies as unknown.
+  const isCode = codeMask(cmd);
+
+  for (const { text: seg, at } of segments(String(cmd))) {
+    // Redirection. `2>&1` is excluded by the `&` guard and `2>/dev/null` by the candidacy test —
+    // /dev/null has no extension, and it is outside every lite root anyway. THE FILE DESCRIPTOR IS
+    // PART OF THE OPERATOR, not a reason to look away: `cmd 2> src/app.ts` writes product code
+    // exactly as `cmd > src/app.ts` does, so the digits are matched (`\d*`) rather than used to
+    // disqualify the `>` that follows them.
     //
-    // TWO EXEMPTIONS, both because the field caught this branch reading PROSE as a redirect. A commit
+    // THREE EXEMPTIONS, all because the field caught this branch reading PROSE as a redirect. A commit
     // message describing the worktree convention contains `<repo>_<feature>`, which contains `>_<`:
     // the scan saw `>`, read `_` as the target, and DENIED a `git commit` — while this file's own
     // header promises "GIT ALWAYS WORKS: the conductor commits, pushes, branches". A guard that
@@ -561,12 +717,16 @@ function scanBash(cmd, cwd, root) {
     //     no extension and no separator. This inherits the deliberate fail-open that predicate already
     //     declares (`> Makefile` is missed), and that is the accepted price: the Edit/Write path is
     //     the real guarantee, and a Bash deny kills a whole chained command including its reads.
-    // The two split the work: a heredoc BODY is on its own lines, so the newline split above makes it
-    // its own segment which is NOT a git invocation — the second exemption is what carries that case,
-    // and the first carries `-m "…"` on the command line itself. Bash coverage stays best-effort by
-    // declaration; the Edit/Write path is the guarantee.
+    //   · the `>` MUST BE AT AN OFFSET THE SHELL WOULD READ AS CODE — see codeMask() above, and the
+    //     two `gh pr create` denials that put it here. This is the exemption that actually covers a
+    //     heredoc body: the body is prose by construction, and it was previously protected only by
+    //     the accident that most prose filenames have a scratch extension.
+    // They split the work: `-m "…"` on the command line is carried by the first and the third, a
+    // filename in a PR body by the third alone, and `>_<` by all three. Bash coverage stays
+    // best-effort by declaration; the Edit/Write path is the guarantee.
     if (!isGitMessageCommand(seg)) {
-      for (const m of seg.matchAll(/(?:^|[^0-9&>])>>?\s*(?!&)(['"]?)([^\s;&|<>'"]+)\1/g)) {
+      for (const m of seg.matchAll(/(?:^|[^0-9&>])\d*>>?\s*(?!&)(['"]?)([^\s;&|<>'"]+)\1/g)) {
+        if (!isCode[at + m.index + m[0].indexOf('>')]) continue;
         if (!looksLikeFile(m[2])) continue;
         const hit = check([m[2]], 'shell redirection into it', false);
         if (hit) return hit;

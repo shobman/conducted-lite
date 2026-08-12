@@ -70,6 +70,27 @@ tmpdir differs per machine. No fixture copied from a transcript contains either 
   the main checkout. Absolute, hence the `{{MAIN}}` placeholder. Assumes tmpdir has no spaces in
   it, which is what a redirect target can carry.
 
+### The `>`-in-prose set (defect 8)
+
+`b-pr-body-arrow.txt` is the command the conductor **ran against both the pre-fix and the post-fix
+guard** while opening this branch's pull request; it denied on both, naming
+`server__miq-server__appsettings.json` as a "shell redirection into it" with no redirection anywhere
+in it. It is the second incident of the same shape — miq's, `u-miq-gh-pr-body.txt`, is the first, and
+the difference between them is instructive: miq's filename ends `.txt`, a scratch extension, so that
+one allows for a reason that has nothing to do with the defect. This one carries the bytes that
+actually reproduce.
+
+The other twelve are written for this corpus. Two pairs are the measurement and must be read as
+pairs:
+
+- `b-pr-body-arrow.txt` / `b-arrow-unquoted-is-a-real-redirect.txt` — the same `->` quoted and
+  unquoted. Verified in a real bash: `echo hello->out.txt` **creates** `out.txt` containing
+  `hello-`, and so do `a-->b.txt` and `x=>c.txt`, while `echo "a -> d.txt"` creates nothing. `>` is
+  a metacharacter that delimits the word before it, so the arrow is not what makes the field case
+  safe — the quoting is. A fix that reads the `-` turns the second of this pair red.
+- `b-redirect-quoted-target.txt` / `b-pr-body-arrow-plain-quote.txt` — quoting on the target versus
+  quoting on the operator. Only the operator's position decides whether a redirection exists.
+
 ## Not this guard's, and not verified
 
 `u-miq-*.txt` are quoted in `C:\code\repos\miq\docs\notes\2026-08-13-conducted-lite-field-notes.md`

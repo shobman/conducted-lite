@@ -526,6 +526,133 @@ export const cases = [
     expect: { decision: 'allow' },
   },
 
+  // ---- `>` IN PROSE IS NOT A REDIRECTION, and `>` in code always is ---------------------------
+  //
+  // Defect 8, and it is group B rather than group A because the guard's own header already promises
+  // it: "reads, builds, tests and installs are never touched", and a `gh pr create` is a read of the
+  // diff plus a piece of prose. Two independent field incidents, both denied with
+  // "shell redirection into it" against a command containing no redirection: miq, a filename inside
+  // a fenced block in a PR body, worked around with --body-file; then the conductor opening this
+  // branch's own pull request. A guard that gets routed around by switching tools has taught the
+  // opposite of the rule.
+  //
+  // THE PAIR THAT DECIDES THE MECHANISM is B-pr-body-arrow and B-arrow-unquoted-is-a-real-redirect,
+  // and they must be read together. The obvious reading of the first — "`->` is an arrow, so a `>`
+  // preceded by `-` is not an operator" — is measurably false, and the second is the measurement:
+  //
+  //     $ echo hello->out.txt ; cat out.txt      ->  hello-      (out.txt was created)
+  //     $ echo a-->b.txt      ; cat b.txt        ->  a--
+  //     $ echo x=>c.txt       ; cat c.txt        ->  x=
+  //     $ echo "a -> d.txt"   ; ls d.txt         ->  no such file
+  //
+  // `>` is a metacharacter and delimits the word before it wherever it appears in CODE, so
+  // `echo hello->src/app.ts` genuinely writes product code and must stay denied. The fourth line is
+  // the real discriminator and it is QUOTING. Any fix that keeps the first four cases green by
+  // reading `-` and turns B-arrow-unquoted-is-a-real-redirect red has swapped a false deny for a
+  // false allow.
+  {
+    id: 'B-pr-body-arrow',
+    group: 'B',
+    what: 'a `->` in a PR body, in a heredoc inside a quoted argument — the field case, twice',
+    why: 'No redirection exists anywhere in this command. The arrow sits in a `<<\'EOF\'` body ' +
+      'inside a `"…"` argument, so the shell never reads that `>` as code.',
+    payload: bash('b-pr-body-arrow'),
+    expect: { decision: 'allow' },
+    notMentions: ['server__miq-server__appsettings.json'],
+  },
+  {
+    id: 'B-pr-body-fat-arrow',
+    group: 'B',
+    what: 'the same with `=>`',
+    payload: bash('b-pr-body-fat-arrow'),
+    expect: { decision: 'allow' },
+  },
+  {
+    id: 'B-pr-body-long-arrow',
+    group: 'B',
+    what: 'the same with `-->`',
+    payload: bash('b-pr-body-long-arrow'),
+    expect: { decision: 'allow' },
+  },
+  {
+    id: 'B-pr-body-arrow-plain-quote',
+    group: 'B',
+    what: 'an arrow in a plainly double-quoted --body, with no heredoc',
+    why: 'The quoting alone is the reason, and it must hold without the heredoc carrying it.',
+    payload: bash('b-pr-body-arrow-plain-quote'),
+    expect: { decision: 'allow' },
+  },
+  {
+    id: 'B-arrow-unquoted-is-a-real-redirect',
+    group: 'B',
+    what: 'the SAME arrow unquoted — a genuine redirect into product code, and still denied',
+    why: 'Measured in bash: `echo hello->out.txt` creates out.txt containing `hello-`. This is the ' +
+      'case that fails if the fix reads the `-` instead of the quoting, and it is the whole reason ' +
+      'the narrow reading is wrong.',
+    payload: bash('b-arrow-unquoted-is-a-real-redirect'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'B-redirect-product',
+    group: 'B',
+    what: '`echo x > src/app.ts` — the plain redirect, still denied',
+    payload: bash('b-redirect-product'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'B-append-product',
+    group: 'B',
+    what: '`echo x >> src/app.ts` — append is a write',
+    payload: bash('b-append-product'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'B-redirect-glued-product',
+    group: 'B',
+    what: '`echo x >src/app.ts` — no space between the operator and its target',
+    payload: bash('b-redirect-glued-product'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'B-redirect-fd-product',
+    group: 'B',
+    what: '`npm run build 2> src/app.ts` — a file descriptor in front of the operator',
+    why: 'The fd is PART of the redirection operator, not a reason to look away from it: this ' +
+      'writes product code exactly as a bare `>` does.',
+    payload: bash('b-redirect-fd-product'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'B-redirect-quoted-target',
+    group: 'B',
+    what: '`echo x > "src/app.ts"` — the OPERATOR is code even though the target is quoted',
+    why: 'Only the operator\'s position decides whether there is a redirection. A quoted target is ' +
+      'still a target, and a fix that blanks quoted text wholesale would lose this one.',
+    payload: bash('b-redirect-quoted-target'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'B-redirect-segment-start',
+    group: 'B',
+    what: 'a redirect at the very start of a segment, with no command before it',
+    payload: bash('b-redirect-segment-start'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'B-fd-dup-stderr',
+    group: 'B',
+    what: '`npm test 2>&1` — a descriptor duplication, not a file',
+    payload: bash('b-fd-dup-stderr'),
+    expect: { decision: 'allow' },
+  },
+  {
+    id: 'B-fd-devnull',
+    group: 'B',
+    what: '`grep -rn TODO src 2>/dev/null` — a read, and /dev/null is outside every lite root',
+    payload: bash('b-fd-devnull'),
+    expect: { decision: 'allow' },
+  },
+
   // ---- fail-open: silence, always, and never a wedged session ---------------------------------
   {
     id: 'B-failopen-malformed-stdin',

@@ -1,0 +1,4 @@
+gh pr create --title "x" --body "$(cat <<'EOF'
+the mapping is a.json => src/app.ts, and nothing writes either
+EOF
+)"
