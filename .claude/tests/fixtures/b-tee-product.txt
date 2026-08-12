@@ -1,0 +1,1 @@
+npm run build | tee src/app.ts

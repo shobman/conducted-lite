@@ -1,0 +1,1 @@
+cp /c/temp/x.ts src/app.ts

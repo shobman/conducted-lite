@@ -1,0 +1,3 @@
+D="/c/Users/simon/AppData/Local/Temp/claude/C--code-repos-mukfork/307243ed-.../scratchpad/recovered"
+cp /c/code/repos/mukfork/docs/product/assets/row-*.jpg /c/code/repos/mukfork/docs/product/assets/hero-*.jpg "$D/" 2>/dev/null
+ls "$D"/row-*.jpg "$D"/hero-*.jpg | sed 's|.*/||'

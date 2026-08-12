@@ -1,0 +1,4 @@
+gh pr create --title "x" --body "$(cat <<'EOF'
+the bypass, before: bash -c "echo x > src/app.ts" was ALLOWED
+EOF
+)"

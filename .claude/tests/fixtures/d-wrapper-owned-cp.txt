@@ -1,0 +1,1 @@
+bash -c "cp /c/temp/a.json research/2026-08-13-data.json"

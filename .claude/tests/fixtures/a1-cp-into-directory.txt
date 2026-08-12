@@ -1,0 +1,1 @@
+cp docs/assets/row-1.jpg /c/temp/out/

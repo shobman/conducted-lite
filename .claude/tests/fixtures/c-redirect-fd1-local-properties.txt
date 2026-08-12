@@ -1,0 +1,1 @@
+echo sdk.dir=/x 1> local.properties

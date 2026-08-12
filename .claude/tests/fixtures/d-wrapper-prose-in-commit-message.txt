@@ -1,0 +1,1 @@
+git commit -m 'guard: deny bash -c "echo x > src/app.ts", which stepped around the scan'

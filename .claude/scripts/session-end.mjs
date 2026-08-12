@@ -52,7 +52,9 @@ import {
 const LAST_REL = `${CONDUCTED}/last-session.md`;
 
 const HELP = `conducted-lite session-end — RUN the guard-rail checks, then write what was verified.
-Nothing here is asserted; every line is a command's real output.
+Nothing here is asserted; every line is a command's real output. It writes exactly two things —
+each touched feature's state.md and ${LAST_REL} — and NEVER the roadmap. See WHAT IT
+NEVER WRITES below.
 
   node ${END_REL} [--allow-dirty "<globs>"] [--effort "<note>"] [--rescaffold]
   node ${END_REL} --abandon --reason "<why>" [--session-id <id>]
@@ -67,7 +69,7 @@ harness's own definition, and it is BEST-EFFORT besides: a closed terminal, a cr
 nothing. The real safety net is 'node ${START_REL}', which derives everything it
 reports from git and needs no record at all.
 
-CHECKS — each printed with the command that verified it:
+CHECKS — FOUR, and these are all of them. Each is printed with the command that verified it:
   1 nothing stranded      'git status --porcelain' is empty in this checkout and in every worktree.
                           Every accounted-for file is NAMED with the SOURCE that accounted for it —
                           never silently suppressed. Hiding a file is the failure this check exists
@@ -144,7 +146,10 @@ CHECKS — each printed with the command that verified it:
                           mtime — same reason, one level down. Untouched features are not checked and
                           not rewritten.
 
-THEN IT WRITES:
+THEN IT WRITES — two kinds of file and no others. EVERY WRITE IS ATOMIC: temp file, then rename, so
+a kill mid-write leaves the whole old file or the whole new one and never half of either. That
+matters because the SessionEnd path runs while the session is terminating and can be killed between
+any two bytes.
   ${WORK_REL}/<name>/state.md   for every TOUCHED feature. Two regions: this script owns only
   the bytes between
     ${FACTS_START}
@@ -160,6 +165,18 @@ THEN IT WRITES:
   markers missing         -> E_LITE_NO_MARKERS naming the file. It is NOT modified. Silently
                              rewriting someone else's file is the failure this refuses; add the
                              markers by hand, or run --rescaffold.
+
+WHAT IT NEVER WRITES — the guarantee to check before you run this at close-out:
+  ${ROADMAP_REL}   NEVER. Not a row, not a heading, not a byte. This script READS the
+                          roadmap, to learn which features are DECLARED in flight (check 1), and
+                          that is the whole of its relationship with the file. Hand-written rows,
+                          ideas and anything else you put there cannot be clobbered by running this.
+                          Regenerating the ledger belongs to 'node ${START_REL}'
+                          and to nothing else.
+  ${ARCHIVE_REL}   NEVER, for the same reason. Sweeping is also session-start's.
+  your human regions      NEVER. Outside the facts markers is yours, spliced around by byte index.
+                          NO SCRIPT IN THIS REPO TICKS AN ACCEPTANCE CRITERION, including this one,
+                          and none unticks one either.
 
 FLAGS:
   --allow-dirty "<globs>"  comma-separated, repo-relative. Matched files are NAMED as accounted for,
@@ -205,6 +222,9 @@ EXIT: 0 with the assurance block (every check VERIFIED, output quoted). 1 with t
 each finding, why, and the exact command that fixes it. NEITHER EXIT BLOCKS ANYTHING. On the
 SessionEnd path the exit code is ignored by the harness itself; the findings live in
 ${LAST_REL} and in the next SessionStart's report, which is where a human reads them.
+ON FAILURE THE FILES ARE WRITTEN ANYWAY. state.md and ${LAST_REL} are rewritten before
+either verdict prints, so a failed check RECORDS the unmanaged state and lands in the files a
+successor reads instead of scrolling past in one terminal. Writing is not the reward for passing.
 
 HONEST LIMITS — said plainly rather than implied away:
   · NOTHING HERE STOPS A SESSION. A session can end with work stranded and no machinery will
@@ -227,6 +247,11 @@ HONEST LIMITS — said plainly rather than implied away:
   · Check 4 is silent when this session touched no feature folder at all. That is deliberate — see
     the note it prints — but it means a session spent entirely outside ${WORK_REL}/ leaves no
     written trace, and nothing mechanical can tell you whether it should have.
+  · THE ROADMAP IS REGENERATED ONLY AT SESSION START, and check 1's in-flight allowance is keyed to
+    a row under '## development'. A feature created MID-SESSION has no row yet, so a live builder's
+    worktree reads here as work nobody declared, and check 1 fails on it though nothing is wrong.
+    That is a stale ledger, not a finding: 'node ${START_REL}' regenerates it — it
+    is safe to run at any time — and then re-run this.
   · The '--effort' figure is recorded verbatim and never verified.`;
 
 // ---------------------------------------------------------------------------- args

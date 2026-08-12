@@ -1,0 +1,1 @@
+cp "/c/temp/a;b.ts" src/app.ts

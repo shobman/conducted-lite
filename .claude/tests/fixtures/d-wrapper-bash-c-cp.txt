@@ -1,0 +1,1 @@
+bash -c "cp /c/temp/a.ts src/app.ts"

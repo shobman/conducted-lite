@@ -1,0 +1,1 @@
+bash -ec "echo x > src/app.ts"

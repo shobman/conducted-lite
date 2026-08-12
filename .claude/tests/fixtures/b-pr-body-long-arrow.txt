@@ -1,0 +1,4 @@
+gh pr create --title "x" --body "$(cat <<'EOF'
+renamed: old/thing.json --> src/app.ts
+EOF
+)"

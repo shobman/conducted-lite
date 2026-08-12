@@ -1,0 +1,1 @@
+python -c 'import io; old="alpha"; new="beta"; p=".conducted/work/guard-false-positives/state.md"; s=io.open(p,encoding="utf-8").read(); s=s.replace(old,new); io.open(p,"w",encoding="utf-8",newline="").write(s)'

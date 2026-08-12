@@ -1,0 +1,1 @@
+echo "x" > {{MAIN}}/src/app.ts

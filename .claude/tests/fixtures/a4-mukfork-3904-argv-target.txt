@@ -1,0 +1,15 @@
+D="/c/Users/simon/AppData/Local/Temp/claude/C--code-repos-mukfork/307243ed-.../scratchpad/recovered"
+python - "$D/look4.html" <<'PY' 2>/dev/null || node -e '
+const fs=require("fs");
+…
+const html=`<!doctype html><meta charset="utf-8"><style>…</style>
+<div class="row">
+<div class="c"><div class="shot"><img src="ramen.jpg"><img src="ramen.jpg" style="…"></div>…</div>
+…
+</div>`;
+fs.writeFileSync(process.argv[1], html);
+console.log("written");
+' "$D/look4.html"
+PY
+ls -la "$D/look4.html"
+"/c/Program Files/Google/Chrome/Application/chrome.exe" --headless=new … --screenshot="…/look4.png" "http://127.0.0.1:8991/look4.html" 2>/dev/null

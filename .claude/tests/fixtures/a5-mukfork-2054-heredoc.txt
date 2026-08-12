@@ -1,0 +1,15 @@
+python - <<'EOF'
+import io
+p=".conducted/standards.md"
+s=io.open(p,encoding="utf-8").read()
+old1="`.mf-tab-active` paints a 47px segment"
+new1="`.mf-tab-active` paints a segment of it"
+assert old1 in s
+s=s.replace(old1,new1)
+old2="`@media print` block at all (the same gap as `creator.html` and `profile.html`) and is the only"
+new2="`@media print` block at all (**ten of the twelve artboards lack one** — corrected 2026-08-09,\nthis clause previously named only three) and is the only"
+assert old2 in s
+s=s.replace(old2,new2)
+io.open(p,"w",encoding="utf-8",newline="").write(s)
+print("both replaced")
+EOF

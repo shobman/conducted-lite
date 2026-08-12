@@ -1,0 +1,1 @@
+cp /c/temp/a.ts src/app.ts # x|y

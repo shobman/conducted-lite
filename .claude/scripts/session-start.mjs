@@ -50,8 +50,19 @@ fact-check every claim in ${WORK_REL}/<feature>/state.md against reality.
 
   node ${START_REL} [--no-tidy] [--offline] [--rescaffold]
 
-WHAT IT DERIVES — nobody maintains a status field, so no status field can drift:
+THE ONE RULE IT IS BUILT AROUND: IT INFORMS, IT NEVER DECIDES. Moving a row from 'refined' to
+'development' because a branch exists is reading, not judgement, so it does that. It will NEVER move
+a row to 'complete', never read a merged PR as an ending, and never tick an acceptance criterion.
+When the evidence outruns its authority it says so in one sentence and stops — "this reads as
+complete; the roadmap says development" — and you move the row, or you do not.
+
+WHAT IT DERIVES — THE HEADINGS ARE THE STATUS. Nobody maintains a status field, so no status field
+can drift. FOUR of the six rungs are derived; the other two are yours alone:
   ${WORK_REL}/<feature>/ + git reality  ->  the heading the row sits under.
+    idea         NOT DERIVED, ever. An idea is a hand-written line with no folder, kept verbatim, in
+                 your order, under the heading you wrote it beneath. (Only blank lines around a
+                 section are normalised, so two runs produce identical bytes; no non-blank line of
+                 yours is altered, reordered or dropped.)
     new          the folder exists (problem.md is what it is FOR, but the folder alone is enough)
     accepted     solution.md exists
     refined      tech-design.md exists
@@ -60,8 +71,8 @@ WHAT IT DERIVES — nobody maintains a status field, so no status field can drif
       worktree = any linked worktree whose directory name is the feature name. The convention is
                  'worktrees/<feature>/' inside the repo; one beside it as '<repo>_<feature>' is
                  still read (the prefix is stripped) and is REPORTED as out of convention.
-    complete     NEVER DERIVED. Only a human writes this, by moving the row under '## complete'.
-  idea rows have no folder — they are hand-written lines and are preserved byte-for-byte.
+    complete     NEVER DERIVED, and the rung this script will never assign under any evidence. Only
+                 a human writes it, by moving the row under '## complete'.
 
   IT NEVER MOVES A ROW DOWN THE LADDER. A merged branch that was deleted would otherwise demote
   'development' back to 'refined', which reads as the machine undoing your work. Placement is the
@@ -113,6 +124,21 @@ WHAT IT REPORTS AND WILL NOT DO:
                             block. Whatever is found is QUOTED wherever it is reported.
   · acceptance criteria     counted, never ticked. No script in this repo ticks a box.
 
+WHAT IT TIDIES — everything else it only reports. The line is drawn at REVERSIBLE plus a HUMAN
+TRIGGER, and '--no-tidy' turns all of it off:
+  1 sweep '## complete' into ${ARCHIVE_REL} — you already made the call by moving
+    the row there; the sweep is bookkeeping after the fact and the archive keeps every byte. An
+    archived name is never regenerated onto the roadmap: delete its archive row to bring it back.
+  2 remove a worktree whose branch is PROVABLY contained in origin's default branch AND whose
+    'git status --porcelain' is empty — every byte of it is in origin, so nothing can be lost. THE
+    BRANCH IS NOT DELETED. When containment cannot be VERIFIED (origin's objects are not in this
+    clone), it reports and does nothing: an unfetched clone is never read as "merged". Merged but
+    dirty is also reported and never removed — it holds bytes that exist nowhere else.
+  3 'git worktree prune' — removes the REGISTRATION of a worktree whose directory is already gone.
+    By git's own definition it touches nothing on disk.
+Deleting a branch, moving anything toward 'complete', writing a document, ticking a box: all
+judgement, and none of it happens here.
+
 WHAT IT PRINTS FIRST — an INSTRUCTION, then the orientation. A SessionStart hook's stdout reaches the
 MODEL and never the transcript, so no hook mechanism can put any of this on a human's screen. The
 handoff is therefore behavioural: the block opens by asking the reading session to say where things
@@ -130,7 +156,21 @@ FLAGS:
   --help        this text.
 
 EXIT: always 0 unless a NAMED E_* error made it refuse to write. This script informs; it never
-blocks. The SessionStart hook that runs it fails open on everything, including this exiting nonzero.`;
+blocks. The SessionStart hook that runs it fails open on everything, including this exiting nonzero.
+
+KNOWN LIMITS — said plainly rather than implied away:
+  · THE LEDGER IS REGENERATED ONLY WHEN THIS SCRIPT RUNS, and nothing else in this repo writes
+    ${ROADMAP_REL}. A feature folder or worktree created MID-SESSION therefore has no
+    row until it runs again — and the in-flight allowance in
+    'node ${END_REL}' and in the per-turn stop glance is keyed to a row under
+    '## development', so a live builder's uncommitted work reads as unaccounted-for until then.
+    THAT IS A STALE LEDGER, NOT A FAULT: re-run 'node ${START_REL}'. It is safe
+    to run at any time, and this is what it is for.
+  · Everything it says about origin comes from refs THIS CLONE ALREADY HOLDS — local-only commits,
+    'did it ship?' and every merge-containment answer are as of your LAST FETCH. The only network
+    call in the whole run is the optional 'gh pr list', and '--offline' removes that one.
+  · It reads the human region but never interprets it: an acceptance criterion is counted, a PR is
+    read only from a line whose whole content is the declaration, and prose is never a fact.`;
 
 const { positional, flags } = parseArgs(process.argv.slice(2));
 if (flags.help) { process.stdout.write(HELP + '\n'); process.exit(0); }
