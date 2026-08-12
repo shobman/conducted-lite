@@ -208,8 +208,30 @@ these were visible to the corpus, the builder, or me.
 
 **Confirmed clean:** 40 malformed payload shapes all exit 0 silent in ≤41ms; the 5s stdin timeout
 behaves exactly as declared; no catastrophic backtracking (20,000 quoted literals → 40ms); median
-37ms per invocation; `agent_id: ""`/`null`/`false` correctly read as absent; `bash -c`, `sh -c` and
-`eval` wrappers all still deny, so the word-splitting narrowing opened no wrapper bypass.
+37ms per invocation; and `agent_id: ""`/`null`/`false` correctly read as absent.
+
+**CORRECTION, 2026-08-13 — the evaluator got one wrong, and it was the reassuring one.** Its report
+said `bash -c`, `sh -c` and `eval` wrappers "all still deny, so the word-splitting narrowing opened
+no wrapper bypass", and that sentence was written into this file as confirmed-clean. A later builder
+ran them; they **allow**. Re-run here independently, against the current guard:
+
+```
+DENY   echo x > src/app.ts                    <- control
+ALLOW  bash -c "echo x > src/app.ts"
+ALLOW  sh -c 'echo x > src/app.ts'
+ALLOW  eval "echo x > src/app.ts"
+ALLOW  bash -c "cp /c/temp/a.ts src/app.ts"
+DENY   cp /c/temp/a.ts src/app.ts             <- control
+```
+
+**A one-word prefix defeats the whole Bash surface.** It is not a regression — a `-c` argument is a
+single quoted word, which is the declared word-splitting narrowing behaving as documented — but it
+is the widest practical hole in the guard and it was sitting behind a false all-clear.
+
+**The lesson is the one this project keeps relearning, now committed by the evaluator:** an
+adversarial pass is still a summary of what it ran, and a NEGATIVE result in it is exactly as
+unreliable as a positive one. A "confirmed clean" line deserves the same check as a finding. Two
+independent agents disagreed, and the one that had RUN it was right.
 
 **A ruling for the owner, not a defect.** The `git` exemption is now the widest hole in the guard:
 `git apply <patch>` writes arbitrary product code and is allowed by design, as is

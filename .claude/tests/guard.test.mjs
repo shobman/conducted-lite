@@ -76,6 +76,13 @@ const NAME_PATTERNS = [
   /\bThis command writes\s+(\S+?)\s*\(/,                                 // Bash, resolved target
   /\bThis (?:Write|Edit|MultiEdit|NotebookEdit) of\s+(\S+?)\s+is denied/, // Edit/Write path
   /\bwrites?\s+([^\s(),]+\.[A-Za-z][A-Za-z0-9]{0,11})\b/,                // fallback, any rewording
+  // A PATH MAY CONTAIN A SPACE, and the three above all stop at one: each reads the name with `\S`
+  // or a class that excludes whitespace, so `src/my app.ts` came back as "names nothing" from a
+  // message that named it perfectly well. Added rather than edited, and added LAST on purpose — it
+  // is reached only where the three above already returned null, so no case that passed before can
+  // change verdict. It is anchored on the parenthesised reason and the comma that follows it, which
+  // is the one piece of that sentence's shape a rewording is unlikely to drop.
+  /\bThis command writes\s+(.+?)\s+\([^)\n]*\),/,
 ];
 function namedPath(reason) {
   for (const re of NAME_PATTERNS) {

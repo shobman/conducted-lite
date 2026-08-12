@@ -760,6 +760,480 @@ export const cases = [
   },
 
   // ===========================================================================================
+  // GROUP B (continued) — THE FRESH EVALUATOR'S SEVEN, 2026-08-13.
+  //
+  // A black-box evaluator that never saw the build drove ~290 payloads at the guard, working only
+  // from its stated contract, and got product code past it in nine shapes. Seven were scoped for
+  // repair (N1–N4, G1–G3); G4, G5 and G6 are deliberately deferred for an owner scope call and are
+  // NOT represented here as passing cases.
+  //
+  // These are group B, not group A, for the same reason the tree cases are: every one of them is a
+  // promise the guard's header already made and did not keep. Each was reproduced against the real
+  // hook out-of-process before it was fixed, and the before-reading is quoted in each `why`.
+  // ===========================================================================================
+
+  // ---- N1: a path has more than one spelling, and they are the same file ----------------------
+  //
+  // The Edit/Write path is what the header calls "the real guarantee", so this was the worst of the
+  // seven. Every spelling below was proved WRITABLE first — node writeFileSync through each one
+  // created a real file — and each was then measured against the guard: `\\?\C:\…\src\app.ts` and
+  // `//localhost/c$/…/src/app.ts` ALLOWED while `src/app.ts`, `C:/…/src/app.ts`, `C:\…\src\app.ts`
+  // and `/c/…/src/app.ts` all denied. The mechanism is not a missing branch: `\\?\` carries a `?`
+  // and `c$` carries a `$`, and classify()'s glob/variable test reads either as unknowable.
+  //
+  // THE PAIR THAT BOUNDS THE FIX is C-n1-unc-remote-host and C-n1-unc-non-admin-share. Folding a
+  // spelling is only legitimate where the mapping is certain. `\\build07\c$\…` is another machine's
+  // C: drive and `\\localhost\projects\…` is a share that may point anywhere; both stay unmapped and
+  // therefore allowed, which is this file's "unknown is always an allow" and not an oversight.
+  {
+    id: 'C-n1-extended-length',
+    group: 'B',
+    what: 'Write of `\\\\?\\C:\\…\\src\\app.ts` — the extended-length spelling of product code',
+    why: 'ALLOWED before the fix, while every other spelling of the same file denied. Proved '
+      + 'writable: writeFileSync through this spelling creates the file.',
+    payload: write('\\\\?\\' + join(REPO_ROOT, 'src', 'app.ts')),
+    expect: { decision: 'deny', named: 'src/app.ts' },
+  },
+  {
+    id: 'C-n1-device-namespace',
+    group: 'B',
+    what: 'Write of `\\\\.\\C:\\…\\src\\app.ts` — the device-namespace spelling',
+    why: 'The sibling of the above and equally writable. Folded by the same rule.',
+    payload: write('\\\\.\\' + join(REPO_ROOT, 'src', 'app.ts')),
+    expect: { decision: 'deny', named: 'src/app.ts' },
+  },
+  {
+    id: 'C-n1-extended-length-unc',
+    group: 'B',
+    what: 'Write of `\\\\?\\UNC\\localhost\\c$\\…\\src\\app.ts` — both spellings at once',
+    why: 'The extended-length prefix wearing a UNC. Proved writable.',
+    payload: write('\\\\?\\UNC\\localhost\\c$' + join(REPO_ROOT, 'src', 'app.ts').slice(2)),
+    expect: { decision: 'deny', named: 'src/app.ts' },
+  },
+  {
+    id: 'C-n1-admin-share',
+    group: 'B',
+    what: 'Write of `//localhost/c$/…/src/app.ts` — the administrative share',
+    why: 'The evaluator\'s second allowed spelling, and proved writable. An admin share on THIS '
+      + 'machine is the local drive, spelled differently.',
+    payload: write('//localhost/c$' + posix(join(REPO_ROOT, 'src', 'app.ts')).slice(2)),
+    expect: { decision: 'deny', named: 'src/app.ts' },
+  },
+  {
+    id: 'C-n1-admin-share-backslash',
+    group: 'B',
+    what: 'the same as `\\\\localhost\\c$\\…` — backslashes, as a person actually types it',
+    payload: write('\\\\localhost\\c$' + join(REPO_ROOT, 'src', 'app.ts').slice(2)),
+    expect: { decision: 'deny', named: 'src/app.ts' },
+  },
+  {
+    id: 'C-n1-admin-share-loopback-ip',
+    group: 'B',
+    what: 'the same via the loopback address, `//127.0.0.1/c$/…`',
+    why: 'A local host is a local host however it is named. Proved writable.',
+    payload: write('//127.0.0.1/c$' + posix(join(REPO_ROOT, 'src', 'app.ts')).slice(2)),
+    expect: { decision: 'deny', named: 'src/app.ts' },
+  },
+  {
+    id: 'C-n1-admin-share-owned-still-allows',
+    group: 'B',
+    what: 'an owned path through the same spelling — folding must not deny the roadmap',
+    why: 'THE CONTROL. Normalising a spelling has to reach the allow-set as readily as the '
+      + 'deny-set, or the fix would have traded a hole for a false positive.',
+    payload: write('\\\\?\\' + join(REPO_ROOT, '.conducted', 'roadmap.md')),
+    expect: { decision: 'allow' },
+  },
+  {
+    id: 'C-n1-unc-remote-host',
+    group: 'B',
+    what: 'a REMOTE host\'s admin share with the same tail — must stay allowed',
+    why: 'ONE HALF OF THE PAIR THAT BOUNDS THE FIX. `\\\\build07\\c$\\…` is another machine\'s C: '
+      + 'drive. Folding it to this machine\'s would judge a path nobody named, which is the '
+      + 'invented-filename defect wearing a new hat. Unmapped, therefore unknown, therefore allowed.',
+    payload: write('//build07/c$' + posix(join(REPO_ROOT, 'src', 'app.ts')).slice(2)),
+    expect: { decision: 'allow' },
+  },
+  {
+    id: 'C-n1-unc-non-admin-share',
+    group: 'B',
+    what: 'a non-admin share name on localhost — must stay allowed',
+    why: 'THE OTHER HALF. `\\\\localhost\\projects\\…` is a share that may be rooted anywhere on '
+      + 'the disk; the guard cannot resolve it without asking the OS, so it does not guess.',
+    payload: write('//localhost/projects' + posix(join(REPO_ROOT, 'src', 'app.ts')).slice(2)),
+    expect: { decision: 'allow' },
+  },
+  {
+    id: 'C-n1-redirect-extended-length',
+    group: 'B',
+    what: 'the same spelling on the Bash path — `echo x > \\\\?\\C:\\…\\src\\app.ts`',
+    why: 'norm() is shared, so the fold reaches every branch. Held here so a future change to the '
+      + 'Edit/Write path alone cannot quietly reopen the Bash half.',
+    payload: bash('c-redirect-extended-length'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+
+  // ---- N2: the cwd gate asked the wrong question ----------------------------------------------
+  //
+  // Measured before the fix: with `cwd` set to `C:/code/repos`, or `C:/`, or absent, a `Write` of an
+  // ABSOLUTE in-repo product path was ALLOWED, and so was `echo hi > <absolute in-repo path>`. The
+  // header declared BOTH "which tree a path is measured against is decided by the path, not by the
+  // cwd" AND "no .conducted/CONDUCTOR.md at or above the cwd -> instant silence", and no mechanism
+  // can honour both — the cwd gate ran first and short-circuited, so the tree rule never ran.
+  // THE RULING, dated in the guard's own header: the gate is about whether this law is in force for
+  // the TARGET, so it asks the target first, and falls silent only when NEITHER the target NOR the
+  // cwd sits under a lite repo. B-failopen-not-a-lite-repo and its Bash twin are the other side of
+  // that ruling and still pass unchanged: their targets are RELATIVE, so they resolve under the
+  // outside cwd and belong to no tree at all.
+  {
+    id: 'C-n2-outside-cwd-absolute-product',
+    group: 'B',
+    what: 'Write of an absolute in-repo product path, from a cwd outside every lite repo',
+    why: 'ALLOWED before the fix. Any conductor whose shell had wandered one directory up was '
+      + 'working unguarded and nothing announced it.',
+    outsideRepo: true,
+    payload: write(posix(join(NESTED_MAIN, 'src', 'app.ts'))),
+    expect: { decision: 'deny', named: 'src/app.ts' },
+  },
+  {
+    id: 'C-n2-no-cwd-at-all-absolute-product',
+    group: 'B',
+    what: 'the same with NO cwd in the payload',
+    why: 'resolveCwd() falls back to the process cwd, which the runner puts outside too. The target '
+      + 'still carries its own tree.',
+    outsideRepo: true,
+    payload: {
+      session_id: 'corpus', hook_event_name: 'PreToolUse', tool_name: 'Write',
+      tool_input: { file_path: posix(join(NESTED_MAIN, 'src', 'app.ts')), content: 'x' },
+    },
+    expect: { decision: 'deny', named: 'src/app.ts' },
+  },
+  {
+    id: 'C-n2-outside-cwd-absolute-redirect',
+    group: 'B',
+    what: 'the Bash half — `echo hi > <absolute in-repo path>` from an outside cwd',
+    outsideRepo: true,
+    payload: bash('c-redirect-abs-from-outside'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'C-n2-outside-cwd-absolute-owned',
+    group: 'B',
+    what: 'an OWNED absolute path from an outside cwd — allowed, and for the right reason',
+    why: 'The target is asked, found to sit under a lite root, and matched against the allow-set. '
+      + 'It must not be allowed merely because the cwd was elsewhere.',
+    outsideRepo: true,
+    payload: write(posix(join(NESTED_MAIN, '.conducted', 'roadmap.md'))),
+    expect: { decision: 'allow' },
+  },
+  {
+    id: 'C-n2-outside-cwd-relative-stays-allowed',
+    group: 'B',
+    what: 'a RELATIVE product path from an outside cwd — still silent, and that is unchanged',
+    why: 'THE CASE THAT PROVES THE RULING WAS NARROW. A relative path resolves against the cwd, the '
+      + 'cwd is under no lite root, so the path is in no tree and this law is not in force for it. '
+      + 'The "not a lite repo" silence survives intact; it only moved one layer down.',
+    outsideRepo: true,
+    payload: write('src/app.ts'),
+    expect: { decision: 'allow' },
+  },
+
+  // ---- N3: a non-string target is not a path --------------------------------------------------
+  //
+  // `"file_path": 42` denied with "This Write of 42 is denied"; `{"a":1}` denied naming
+  // `[object Object]`. Two promises broken at once — "a payload shape we do not recognise ->
+  // nothing to judge", which fails OPEN, and "A DENY NEVER INVENTS THE FILE IT IS DENYING". It is
+  // the same family as the `.jpg` the glob scan manufactured: a thing that cannot be a path was
+  // never a candidate. O-write-file-path-not-a-string above holds the object form and predates
+  // this block; these are the counted cases.
+  {
+    id: 'C-n3-file-path-number',
+    group: 'B',
+    what: 'a Write whose file_path is the number 42',
+    why: 'DENIED before the fix, naming `42`.',
+    payload: { session_id: 'corpus', hook_event_name: 'PreToolUse', cwd: REPO_ROOT, tool_name: 'Write', tool_input: { file_path: 42 } },
+    expect: { decision: 'allow' },
+  },
+  {
+    id: 'C-n3-file-path-object',
+    group: 'B',
+    what: 'a Write whose file_path is an object',
+    why: 'DENIED before the fix, naming `[object Object]` — a filename no filesystem has.',
+    payload: { session_id: 'corpus', hook_event_name: 'PreToolUse', cwd: REPO_ROOT, tool_name: 'Write', tool_input: { file_path: { a: 1 } } },
+    expect: { decision: 'allow' },
+  },
+  {
+    id: 'C-n3-file-path-array',
+    group: 'B',
+    what: 'a Write whose file_path is an array of one path',
+    why: 'DENIED before the fix, naming `src/app.ts` — a right answer reached by String()-coercing '
+      + 'a shape the guard does not recognise, which is luck rather than a mechanism.',
+    payload: { session_id: 'corpus', hook_event_name: 'PreToolUse', cwd: REPO_ROOT, tool_name: 'Write', tool_input: { file_path: ['src/app.ts'] } },
+    expect: { decision: 'allow' },
+  },
+  {
+    id: 'C-n3-file-path-boolean',
+    group: 'B',
+    what: 'a Write whose file_path is `true`',
+    payload: { session_id: 'corpus', hook_event_name: 'PreToolUse', cwd: REPO_ROOT, tool_name: 'Write', tool_input: { file_path: true } },
+    expect: { decision: 'allow' },
+  },
+
+  // ---- N4: the allow-set matched case-sensitively on a case-insensitive filesystem -------------
+  //
+  // `Write readme.md` and `Write .CONDUCTED/roadmap.md` both DENIED. Both are literally the
+  // conductor's own files, so this is a residual false positive of exactly the class this feature
+  // exists to kill. NOT A WIDENING OF THE ALLOW-SET: on win32 `readme.md` and `README.md` are one
+  // file, so this is the same entry reached by the same file's other name. The fix is win32-only —
+  // on a case-sensitive filesystem those really are two files and the old behaviour is correct
+  // there, which is why these cases assert nothing about non-win32.
+  {
+    id: 'C-n4-lowercase-readme',
+    group: 'B',
+    what: 'Write of readme.md — the conductor\'s own README under its other name',
+    why: 'DENIED before the fix. B-write-readme holds the canonical spelling; this is the same file.',
+    payload: write('readme.md'),
+    expect: { decision: process.platform === 'win32' ? 'allow' : 'deny', named: 'readme.md' },
+  },
+  {
+    id: 'C-n4-uppercase-conducted',
+    group: 'B',
+    what: 'Write of .CONDUCTED/roadmap.md — the first entry in the allow-set, shouted',
+    why: 'DENIED before the fix, by a message whose last line grants `.conducted/**`. Denying a '
+      + 'write to a path the same sentence grants is how a guard loses its authority.',
+    payload: write('.CONDUCTED/roadmap.md'),
+    expect: { decision: process.platform === 'win32' ? 'allow' : 'deny', named: '.CONDUCTED/roadmap.md' },
+  },
+  {
+    id: 'C-n4-mixed-case-claude-md',
+    group: 'B',
+    what: 'Write of claude.md — the harness\'s own briefing page, lowercased',
+    payload: write('claude.md'),
+    expect: { decision: process.platform === 'win32' ? 'allow' : 'deny', named: 'claude.md' },
+  },
+  {
+    id: 'C-n4-capitalised-research',
+    group: 'B',
+    what: 'Write of Research/notes.md',
+    payload: write('Research/2026-08-13-notes.md'),
+    expect: { decision: process.platform === 'win32' ? 'allow' : 'deny', named: 'Research/2026-08-13-notes.md' },
+  },
+  {
+    id: 'C-n4-case-fold-does-not-widen',
+    group: 'B',
+    what: 'Write of Legal/Readme.md — folding case must not buy a NEW entry',
+    why: 'THE CONTROL. Only the top-level README.md is owned; a README in a subdirectory is not, '
+      + 'in any casing. B-write-legal-readme holds the canonical spelling of the same denial.',
+    payload: write('Legal/Readme.md'),
+    expect: { decision: 'deny', named: 'Legal/Readme.md' },
+  },
+  {
+    id: 'C-n4-case-fold-does-not-widen-src',
+    group: 'B',
+    what: 'Write of SRC/App.ts — product code is product code in any casing',
+    payload: write('SRC/App.ts'),
+    expect: { decision: 'deny', named: 'SRC/App.ts' },
+  },
+
+  // ---- G1: the redirection operators the scan did not know -------------------------------------
+  //
+  // A previous pass taught this branch that a file descriptor is PART of the operator. It stopped
+  // there. Every operator below was ALLOWED against product code before this fix, and every one of
+  // them was RUN IN BASH 5.2 FIRST rather than argued about:
+  //
+  //     $ echo hi &> a.txt ; ls a.txt   -> a.txt      $ echo hi >| c.txt  -> c.txt
+  //     $ echo hi &>> b.txt ; ls b.txt  -> b.txt      $ echo hi >|d.txt   -> d.txt
+  //     $ echo hi >& e.txt ; ls e.txt   -> e.txt      $ echo dup >&1      -> no file (a dup)
+  //
+  // `>|` needed one more thing than a wider operator class: the segment splitter was cutting the
+  // command AT ITS `|`, into `echo hi >` and ` src/app.ts` — an operator with no target and a target
+  // with no operator. Verified in bash that `>|` is one operator and not `>` followed by a pipe.
+  {
+    id: 'C-g1-amp-redirect',
+    group: 'B',
+    what: '`npm run build &> src/app.ts` — stdout and stderr onto product code',
+    payload: bash('c-redirect-amp'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'C-g1-amp-append',
+    group: 'B',
+    what: '`npm run build &>> src/app.ts` — its append form',
+    payload: bash('c-redirect-amp-append'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'C-g1-amp-glued',
+    group: 'B',
+    what: '`npm run build &>src/app.ts` — no space after the operator',
+    payload: bash('c-redirect-amp-glued'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'C-g1-noclobber',
+    group: 'B',
+    what: '`echo hi >| src/app.ts` — the noclobber override',
+    why: 'The one that also needed the segment splitter to stop reading its `|` as a pipe.',
+    payload: bash('c-redirect-noclobber'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'C-g1-noclobber-glued',
+    group: 'B',
+    what: '`echo hi >|src/app.ts` — the same with no space',
+    payload: bash('c-redirect-noclobber-glued'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'C-g1-gt-amp',
+    group: 'B',
+    what: '`npm run build >& src/app.ts` — the csh-style spelling of `&>`',
+    why: 'bash: `>&word` is equivalent to `&>word` when word is a filename, and a descriptor '
+      + 'duplication when it is a digit. `echo hi >& e.txt` created e.txt; `echo dup >&1` did not.',
+    payload: bash('c-redirect-gt-amp'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'C-g1-fd1-append',
+    group: 'B',
+    what: '`npm run build 1>> src/app.ts` — an explicit descriptor on the append form',
+    payload: bash('c-redirect-fd1-append'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'C-g1-fd1-local-properties',
+    group: 'B',
+    what: '`echo sdk.dir=/x 1> local.properties` — the guard\'s one genuine field catch, with an fd',
+    why: 'THE EVALUATOR\'S HEADLINE, and it turned out to be ALREADY FIXED: the earlier `\\d*` pass '
+      + 'covers it, measured DENY before this change as well as after. Pinned here anyway, because '
+      + 'B-echo-local-properties only holds the bare-`>` spelling and this is the shape the report '
+      + 'named. A negative result is a complete result.',
+    payload: bash('c-redirect-fd1-local-properties'),
+    expect: { decision: 'deny', named: 'local.properties', reason: /redirection/i },
+  },
+  {
+    id: 'C-g1-amp-scratch-allows',
+    group: 'B',
+    what: '`npm test &> build.log` — the new operators inherit the scratch exemption',
+    why: 'A wider operator class must not widen what counts as building. Scratch output is exempt '
+      + 'on the Bash path by declaration.',
+    payload: bash('c-redirect-amp-scratch'),
+    expect: { decision: 'allow' },
+  },
+  {
+    id: 'C-g1-amp-devnull-allows',
+    group: 'B',
+    what: '`npm test &>/dev/null` — a discard, not a write',
+    payload: bash('c-redirect-amp-devnull'),
+    expect: { decision: 'allow' },
+  },
+
+  // ---- G2: a quoted redirect target containing a space ------------------------------------------
+  //
+  // `echo hi > "src/my app.ts"` ALLOWED while `echo hi > "src/myapp.ts"` denied — one space between
+  // a catch and a miss, and cp, tee, sed -i, the interpreter shape and Write all handled a spaced
+  // path already. The old target class `[^\s;&|<>'"]+` stopped at the quote AND at the space.
+  //
+  // READ THESE WITH B-pr-body-arrow AND B-arrow-unquoted-is-a-real-redirect. A quoted redirect
+  // TARGET is quoted-as-a-word; a `>` inside quoted PROSE is a different thing entirely, and only
+  // the OPERATOR's offset is tested against codeMask(). Both of those cases are unchanged and still
+  // pass, which is what says this fix touched the target and not the quoting rule.
+  {
+    id: 'C-g2-quoted-spaced-target',
+    group: 'B',
+    what: '`echo hi > "src/my app.ts"` — a double-quoted target with a space in it',
+    payload: bash('c-redirect-quoted-spaced'),
+    expect: { decision: 'deny', named: 'src/my app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'C-g2-single-quoted-spaced-target',
+    group: 'B',
+    what: 'the same single-quoted',
+    payload: bash('c-redirect-single-quoted-spaced'),
+    expect: { decision: 'deny', named: 'src/my app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'C-g2-quoted-spaced-owned-allows',
+    group: 'B',
+    what: '`echo hi > "docs/my notes.md"` — a spaced target that is the conductor\'s own',
+    why: 'THE CONTROL. Reading a spaced target must reach the allow-set as readily as the deny-set.',
+    payload: bash('c-redirect-quoted-spaced-owned'),
+    expect: { decision: 'allow' },
+  },
+
+  // ---- G3: in-place edit flag spellings ---------------------------------------------------------
+  //
+  // The gate was `\s-i(\.\w+)?\b` against the raw segment, which required the `i` to sit
+  // immediately after the dash. Caught: `sed -i`, `sed -i.bak`, `perl -i -pe`. ALLOWED against
+  // product code, all measured: `perl -pi -e 's/a/b/' src/app.ts` — THE CANONICAL IDIOM —
+  // `perl -pi.bak -e`, `perl -ni -e`, `ruby -pi -e`, `sed --in-place`, `gsed -i`. Each was run
+  // against a real file first and each rewrote it in place; `perl -ni -e 'print'` was verified to
+  // rewrite too. The flag is now read as a WORD, and the shape test lives in inPlaceTargets() with
+  // the targets rather than in a second regex that could drift from it.
+  {
+    id: 'C-g3-perl-pi-e',
+    group: 'B',
+    what: "`perl -pi -e 's/a/b/' src/app.ts` — the canonical perl in-place idiom",
+    payload: bash('c-perl-pi-e'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /in-place/i },
+  },
+  {
+    id: 'C-g3-perl-pi-suffix',
+    group: 'B',
+    what: "`perl -pi.bak -e …` — the bundled flag carrying a backup suffix",
+    payload: bash('c-perl-pi-suffix'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /in-place/i },
+  },
+  {
+    id: 'C-g3-perl-ni-e',
+    group: 'B',
+    what: "`perl -ni -e 'print' src/app.ts`",
+    payload: bash('c-perl-ni-e'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /in-place/i },
+  },
+  {
+    id: 'C-g3-ruby-pi-e',
+    group: 'B',
+    what: '`ruby -pi -e … src/app.ts`',
+    payload: bash('c-ruby-pi-e'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /in-place/i },
+  },
+  {
+    id: 'C-g3-sed-long-in-place',
+    group: 'B',
+    what: "`sed --in-place 's/a/b/' src/app.ts` — the long spelling",
+    payload: bash('c-sed-long-in-place'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /in-place/i },
+  },
+  {
+    id: 'C-g3-gsed-i',
+    group: 'B',
+    what: "`gsed -i 's/a/b/' src/app.ts` — GNU sed under the name Homebrew installs it as",
+    why: '`\\bsed\\b` finds no word boundary inside `gsed`. It is the same program.',
+    payload: bash('c-gsed-i'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /in-place/i },
+  },
+  {
+    id: 'C-g3-perl-pi-e-owned-allows',
+    group: 'B',
+    what: "`perl -pi -e 's/a/b/' .conducted/roadmap.md` — an in-place edit of the conductor's own",
+    why: 'THE CONTROL. A wider shape test must still end at the allow-set, not at the shape. This '
+      + 'is the same lesson as the interpreter branch: a shape decides WHETHER to look at a path, '
+      + 'never stands in for looking at one.',
+    payload: bash('c-perl-pi-e-owned'),
+    expect: { decision: 'allow' },
+  },
+  {
+    id: 'C-g3-perl-module-with-i-allows',
+    group: 'B',
+    what: "`perl -MList::Util -e 'print 1' src/app.ts` — a READ whose option contains a lowercase i",
+    why: 'THE CASE THAT FORCED THE FLAG TO BE A WHOLE WORD. A "cluster containing an i" rule reads '
+      + '`-MList::Util` as an in-place edit and denies a read — a false positive manufactured by '
+      + 'the fix for a miss, which is moving the error rather than removing it.',
+    payload: bash('c-perl-module-with-i'),
+    expect: { decision: 'allow' },
+  },
+
+  // ===========================================================================================
   // OBSERVED — found by this corpus, outside the fix this feature is scoped to. NOT COUNTED.
   //
   // Recorded rather than dropped, and not counted rather than counted, for one reason: the

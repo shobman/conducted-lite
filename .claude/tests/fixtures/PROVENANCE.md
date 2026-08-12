@@ -91,6 +91,54 @@ pairs:
 - `b-redirect-quoted-target.txt` / `b-pr-body-arrow-plain-quote.txt` — quoting on the target versus
   quoting on the operator. Only the operator's position decides whether a redirection exists.
 
+### The `c-*.txt` set — the fresh evaluator's seven (2026-08-13)
+
+Written for this corpus, from a black-box evaluator's report of shapes that got product code past
+the guard. **None is a quotation of a field command**, so the rule at the top of this page does not
+bite: each is a shape, and each was reproduced against the real hook out-of-process before it was
+believed and again after it was fixed.
+
+**The shell semantics were RUN, not reasoned about.** Every redirection operator below was executed
+in `GNU bash 5.2.37` first, because the last brief on this file carried a shell-semantics claim that
+was simply false:
+
+    $ echo hi &> a.txt   ; ls a.txt   -> a.txt      $ echo hi >| c.txt ; ls c.txt -> c.txt
+    $ echo hi &>> b.txt  ; ls b.txt   -> b.txt      $ echo hi >|d.txt  ; ls d.txt -> d.txt
+    $ echo hi >& e.txt   ; ls e.txt   -> e.txt      $ echo dup >&1                -> no file
+    $ echo hi > "my file.txt"         -> "my file.txt"    $ echo hi 2>&1          -> no file
+
+Likewise the in-place flags: `perl -pi -e`, `sed --in-place` and `perl -ni -e` were each run against
+a real file and each rewrote it in place.
+
+- `c-redirect-amp.txt`, `c-redirect-amp-append.txt`, `c-redirect-amp-glued.txt`,
+  `c-redirect-noclobber.txt`, `c-redirect-noclobber-glued.txt`, `c-redirect-gt-amp.txt` — G1, the
+  operators the scan did not know. All ALLOWED before the fix.
+- `c-redirect-fd1-local-properties.txt`, `c-redirect-fd1-append.txt` — the evaluator's headline, and
+  **a negative result**: both already DENIED before this change, covered by the earlier `\d*` fd
+  pass. Kept because the report named this shape and the corpus only held the bare-`>` spelling.
+- `c-redirect-amp-scratch.txt`, `c-redirect-amp-devnull.txt` — the controls. A wider operator class
+  must not widen what counts as building.
+- `c-redirect-quoted-spaced.txt` / `c-redirect-single-quoted-spaced.txt` and
+  `c-redirect-quoted-spaced-owned.txt` — G2. **Read these with `b-pr-body-arrow.txt` and
+  `b-arrow-unquoted-is-a-real-redirect.txt`**: a quoted redirect TARGET is quoted-as-a-word, which is
+  a different thing from a `>` inside quoted PROSE. Only the operator's offset decides whether a
+  redirection exists, and that rule is untouched — both of those cases still pass.
+- `c-perl-pi-e.txt`, `c-perl-pi-suffix.txt`, `c-perl-ni-e.txt`, `c-ruby-pi-e.txt`,
+  `c-sed-long-in-place.txt`, `c-gsed-i.txt` — G3, the in-place spellings. All ALLOWED before.
+- `c-perl-pi-e-owned.txt` and `c-perl-module-with-i.txt` are the controls, and the second is the one
+  that shaped the fix: `-MList::Util` contains a lowercase `i`, so a "cluster containing an i" rule
+  would read a READ as an in-place edit. The flag is matched as a whole word because of it.
+- `c-redirect-abs-from-outside.txt` — N2, the Bash half. Carries `{{MAIN}}`, so it is one of the
+  five fixtures that are not pure bytes.
+- `c-redirect-extended-length.txt` — N1 on the Bash path, proving `norm()` is shared by both paths.
+  Carries `{{MAIN}}`.
+
+The N1, N3 and N4 payloads are path and payload SHAPES rather than command lines, so they live in
+`cases.mjs` directly and have no fixture. Every N1 spelling was proved **writable** before it was
+matched — `writeFileSync` through `\\?\C:\…`, `\\.\C:\…`, `\\?\UNC\localhost\c$\…`,
+`\\localhost\c$\…`, `//localhost/c$/…`, `//127.0.0.1/c$/…` and `//<hostname>/c$/…` each created a
+real file; `//./c$/…` failed with ENOENT and is therefore not a spelling of anything.
+
 ## Not this guard's, and not verified
 
 `u-miq-*.txt` are quoted in `C:\code\repos\miq\docs\notes\2026-08-13-conducted-lite-field-notes.md`

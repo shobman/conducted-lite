@@ -1,0 +1,1 @@
+perl -MList::Util -e 'print 1' src/app.ts

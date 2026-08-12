@@ -40,6 +40,11 @@
 // CI, and .claude/** — that last one is the olchat case verbatim, and it is not carved out for
 // being "just a hook". A guard the conductor can rewrite unreviewed is the same failure again.
 //
+// THE ALLOW-SET IS MATCHED THE WAY THE FILESYSTEM MATCHES NAMES: case-folded on win32, where
+// `readme.md` and `README.md` are one file, and case-sensitive elsewhere, where they are two. See
+// OWNED_MATCH. This is not a widening of the list above; it is the same entry reached by the same
+// file's other name.
+//
 // WHICH TREE A PATH IS MEASURED AGAINST IS DECIDED BY THE PATH, NOT BY THE CWD. The allow-set is a
 // set of REPO-RELATIVE patterns, so "relative to which repo" is half the answer, and the cwd is the
 // wrong half. CONDUCTOR.md mandates worktrees at `worktrees/<feature>/` INSIDE the repo, and a
@@ -52,6 +57,35 @@
 // THE NEAREST ANCESTOR OF THAT PATH holding .conducted/CONDUCTOR.md, and the cwd's root is only the
 // fallback for a path with no such ancestor. This needs no knowledge of what a worktree is; a linked
 // worktree has the file checked out, which is the whole mechanism.
+//
+// AND THE PATH IS ASKED FIRST — RULING, 2026-08-13. This file used to say both of the above AND
+// "no .conducted/CONDUCTOR.md at or above the cwd -> instant silence", and no mechanism can honour
+// both: the cwd gate ran first and short-circuited, so the rule that a path carries its own tree
+// never got to run. A fresh evaluator drove it out: with `cwd` set to `C:/code/repos`, or `C:/`, or
+// absent, a `Write` of an ABSOLUTE in-repo product path was ALLOWED, and so was
+// `echo hi > <absolute in-repo path>`. Any conductor whose shell had wandered up one directory was
+// working unguarded, and nothing announced it.
+//
+// THE GATE IS ABOUT WHETHER THIS LAW IS IN FORCE FOR THE TARGET, SO IT MUST ASK THE TARGET. The
+// guard falls silent when NEITHER the target NOR the cwd sits under a lite repo — not when the cwd
+// alone is elsewhere. Mechanically: the cwd's root is computed as a FALLBACK and is allowed to be
+// null; classify() resolves the target's own tree first and only reaches for the fallback when the
+// target has no lite ancestor; a path with neither is in no tree at all and is 'unknown', which is
+// this file's oldest verdict and always an allow. The "not a lite repo" silence is therefore intact
+// and unchanged in outcome — a Write of `src/app.ts` from a cwd in some other project is still
+// silent — it has only moved one layer down, to where the target has been asked too. What it costs,
+// named rather than smuggled: the guard now runs its scan on every Bash call in every repo instead
+// of exiting at the first check, so a non-lite repo pays the scan. MEASURED rather than asserted, 20
+// invocations of a four-shape command line each way: 66ms per call with the cwd in a lite repo, 68ms
+// with it outside one. The scan is microseconds; the cost is node startup, and it was already paid.
+//
+// EVERY SPELLING OF A PATH IS THE SAME PATH. Windows spells one file many ways and the same
+// evaluator got product code through two of them on the Edit/Write path: `\\?\C:\…\src\app.ts` and
+// `//localhost/c$/…/src/app.ts` were ALLOWED while every other spelling of that file denied — both
+// proved writable first. The extended-length (`\\?\`), device (`\\.\`) and `\\?\UNC\` prefixes and
+// an administrative share on THIS machine are folded to the plain path in norm(), before anything
+// judges them. A share this guard cannot prove is local, a non-admin share name, and 8.3 short names
+// are NOT folded and stay allowed: an unmapped spelling is an unknown, and unknown is an allow.
 //
 // BASH COVERAGE IS BEST-EFFORT, AND THE Edit/Write PATH IS THE REAL GUARANTEE. Say it plainly: a
 // shell is a general-purpose machine and no regex owns it. What is here catches the obvious
@@ -75,9 +109,14 @@
 // it was writing. Three regexes had already been added for three earlier cases of the same class and
 // a fourth class arrived anyway. So the scan is gone, and each shape reads its own slot:
 //
-//   > / >>                     the word after the operator
+//   > >> N> N>> &> &>> >| N>&  the word after the operator, quoted or bare, spaces and all. All of
+//                              them were run in bash before being matched; `2>&1` and `2>/dev/null`
+//                              are descriptor work and stay allowed.
 //   tee / sponge               the non-flag words after the verb
-//   sed / perl / ruby -i       the OPERANDS, never the script — a path inside `s/…/…/` is not a target
+//   sed / gsed / perl / ruby   the OPERANDS, never the script — a path inside `s/…/…/` is not a
+//   with an in-place flag      target. The flag is read as a WORD, so `-i`, `-i.bak`, `-pi`, `-ni`,
+//                              `-pi.bak` and `--in-place` all count; `perl -pi -e` is the canonical
+//                              idiom and was missed until 2026-08-13.
 //   cp / mv / install /        THE LAST WORD AFTER OPTION STRIPPING. If it names a directory (a
 //   rsync / ln                 trailing slash, or it exists and is one), the targets are that
 //                              directory joined with each source's basename. `cp x /c/temp/out/`
@@ -118,8 +157,15 @@
 //   · stdin read timeout          stdin that never closes must not hang every tool call
 //   · malformed / absent stdin    nothing to reason about
 //   · a payload shape we do not
-//     recognise                   no tool_name, no tool_input, no target path -> nothing to judge
-//   · not a lite repo             no .conducted/CONDUCTOR.md at or above the cwd -> instant silence.
+//     recognise                   no tool_name, no tool_input, no target path, or a target that is
+//                                 not a STRING -> nothing to judge. A number, an object or an array
+//                                 in file_path is not a path, and the deny it used to produce named
+//                                 `42` and `[object Object]` (2026-08-13).
+//   · not a lite repo             no .conducted/CONDUCTOR.md at or above the TARGET, and none at or
+//                                 above the cwd either -> silence. Restated 2026-08-13; it used to
+//                                 read "at or above the cwd", which contradicted the tree rule above
+//                                 and disarmed the guard for any absolute in-repo path whenever the
+//                                 cwd sat outside. The target is asked first.
 //                                 The guard is a TRACKED FILE, never a directory: git tracks files,
 //                                 not directories, so a directory-existence guard silently disarms
 //                                 the moment its last file moves.
@@ -133,6 +179,7 @@
 //                                 line for a candidate to blame.
 //   · any unexpected throw        fails open
 import { existsSync, statSync } from 'node:fs';
+import { hostname } from 'node:os';
 import { join, dirname, resolve as pathResolve, relative as pathRelative, isAbsolute } from 'node:path';
 
 const CONDUCTOR_REL = '.conducted/CONDUCTOR.md';
@@ -148,6 +195,20 @@ const OWNED = [
   /^README\.md$/,
 ];
 const OWNED_SUMMARY = '.conducted/**, research/**, docs/**.md, CLAUDE.md, README.md';
+
+// THE ALLOW-SET IS MATCHED THE WAY THE FILESYSTEM MATCHES NAMES, AND THAT IS PLATFORM-DEPENDENT.
+// On win32, `readme.md` and `README.md` are ONE FILE, so denying the first while allowing the second
+// denies the conductor his own README — measured 2026-08-13: `Write readme.md` and
+// `Write .CONDUCTED/roadmap.md` both denied, both literally the conductor's own files, which is the
+// residual false positive this feature exists to kill. Folding case is therefore NOT a widening of
+// the allow-set; it is the same entry reached by the same file's other name. On a case-SENSITIVE
+// filesystem `README.md` and `readme.md` are two different files and case-folding really would
+// widen the set, so this is win32-only and deliberately not extended to darwin — a Mac volume can be
+// formatted either way and the guard cannot ask cheaply. The patterns themselves are unchanged.
+const FOLD_CASE = process.platform === 'win32';
+const OWNED_MATCH = FOLD_CASE
+  ? OWNED.map((re) => (re.flags.includes('i') ? re : new RegExp(re.source, re.flags + 'i')))
+  : OWNED;
 
 // Bash only: output that is never product source. A conductor dumping a test log or a diff into the
 // repo is untidy, not building, and denying it would be exactly the kind of noise that gets a guard
@@ -166,8 +227,51 @@ function resolveCwd(c) {
   return process.cwd();
 }
 
-// Same /c/-style normalisation for a path that may not exist yet (a Write creates its target).
-const norm = (p) => String(p || '').replace(/\\/g, '/').replace(/^\/([a-zA-Z])\//, (_, d) => d.toUpperCase() + ':/');
+// A HOST THAT IS THIS MACHINE. `\\localhost\c$\code\x` and `C:\code\x` are the same bytes on the
+// same disk, and the guard has to know that before it can measure one against a tree. A host it
+// cannot prove is local is NOT folded: `\\build07\c$\…` is somebody else's C: drive, and rewriting
+// it to this machine's would judge a path nobody named. Unproven therefore stays unmapped, which
+// lands it in the file's ordinary "unknown is always an allow".
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
+let selfHosts = null;
+function isLocalHost(h) {
+  const k = String(h).toLowerCase();
+  if (LOCAL_HOSTS.has(k)) return true;
+  if (!selfHosts) {
+    selfHosts = new Set();
+    try {
+      const n = String(hostname() || '').toLowerCase();
+      if (n) { selfHosts.add(n); selfHosts.add(n.split('.')[0]); }
+    } catch { /* a host we cannot name is a host we cannot fold */ }
+  }
+  return selfHosts.has(k);
+}
+
+// EVERY SPELLING OF A PATH IS THE SAME PATH, and Windows has more spellings than one. This is the
+// /c/-style normalisation it always did, plus the two Win32 namespace prefixes and the
+// administrative share — measured 2026-08-13 by a fresh evaluator: `\\?\C:\…\src\app.ts` and
+// `//localhost/c$/…/src/app.ts` were ALLOWED while every other spelling of that same file denied,
+// on the Edit/Write path this file's own header calls "the real guarantee". Both were proved
+// writable before being fixed (node writeFileSync through each spelling, files created), and so were
+// `\\.\C:\…`, `\\?\UNC\localhost\c$\…`, `//127.0.0.1/c$/…` and `//<this machine's hostname>/c$/…`.
+// The mechanism was not a missing branch: `\\?\` carries a `?` and `c$` carries a `$`, and
+// classify()'s glob/variable test reads either as "not knowably a path" and allows. So the folding
+// has to happen HERE, before that test ever sees the string.
+//   \\?\C:\x  \\.\C:\x        -> C:/x          the extended-length and device namespaces
+//   \\?\UNC\host\share\x      -> //host/share/x  the same prefixes wearing a UNC
+//   \\host\c$\x (host local)  -> C:/x          an administrative share on THIS machine
+// WHAT IS DELIBERATELY NOT FOLDED, because folding it would be a guess: a non-admin share name
+// (`\\localhost\projects\…` may point anywhere), a remote host's admin share, and 8.3 short names
+// (`C:\PROGRA~1\…`). Each stays unmapped and therefore allowed, which is the direction this file
+// errs in everywhere.
+function norm(p) {
+  let s = String(p || '').replace(/\\/g, '/');
+  const ns = s.match(/^\/\/[?.]\/(.*)$/);
+  if (ns) s = /^UNC\//i.test(ns[1]) ? '//' + ns[1].slice(4) : ns[1];
+  const unc = s.match(/^\/\/([^/]+)\/([A-Za-z])\$(?:\/(.*))?$/);
+  if (unc && isLocalHost(unc[1])) s = `${unc[2].toUpperCase()}:/${unc[3] || ''}`;
+  return s.replace(/^\/([a-zA-Z])\//, (_, d) => d.toUpperCase() + ':/');
+}
 
 // The repo root is the nearest ancestor holding .conducted/CONDUCTOR.md. No child process: this
 // hook runs on EVERY tool call in the main thread, so it spawns nothing and reads nothing but
@@ -193,7 +297,11 @@ function findRoot(start) {
 // root the cwd resolved to. See the header: a conductor in the main checkout editing a worktree's
 // own state.md, and a conductor in a worktree touching the main checkout's product code, are the two
 // directions of the same mistake, and both are answered by asking the path instead of the cwd.
-const rootOf = (abs, fallback) => findRoot(dirname(abs)) || fallback;
+// THE FALLBACK MAY BE NULL, and that is the whole of the 2026-08-13 ruling in the header: a cwd
+// outside every lite repo no longer ends the guard's day, it only means this path has no fallback
+// tree. A path with no lite ancestor and no fallback belongs to no tree, and belonging to no tree is
+// the file's oldest verdict — unknown, which allows.
+const rootOf = (abs, fallback) => findRoot(dirname(abs)) || fallback || null;
 
 const absOf = (raw, cwd) => {
   const p = norm(raw);
@@ -206,14 +314,17 @@ function classify(raw, cwd, root) {
   if (!p) return 'unknown';
   if (/[$*?`{}]|^-/.test(p)) return 'unknown';           // variables, globs, flags: we do not guess
   const abs = absOf(p, cwd);
-  const rel = pathRelative(rootOf(abs, root), abs).replace(/\\/g, '/');
+  const r = rootOf(abs, root);
+  if (!r) return 'unknown';                              // in no lite tree at all: this law is not in force
+  const rel = pathRelative(r, abs).replace(/\\/g, '/');
   if (!rel || rel.startsWith('../') || rel === '..' || isAbsolute(rel)) return 'unknown';  // outside any tree
-  return OWNED.some((re) => re.test(rel)) ? 'owned' : 'denied';
+  return OWNED_MATCH.some((re) => re.test(rel)) ? 'owned' : 'denied';
 }
 
 const relOf = (raw, cwd, root) => {
   const abs = absOf(raw, cwd);
-  return pathRelative(rootOf(abs, root), abs).replace(/\\/g, '/');
+  const r = rootOf(abs, root);
+  return r ? pathRelative(r, abs).replace(/\\/g, '/') : norm(raw);
 };
 
 // ---------------------------------------------------------------- Bash, best-effort by declaration
@@ -269,7 +380,24 @@ function stripRedirections(toks) {
 
 const CP_VERB = /^(?:.*[/\\])?(?:cp|mv|install|rsync|ln)(?:\.exe)?$/i;
 const TEE_VERB = /^(?:.*[/\\])?(?:tee|sponge)(?:\.exe)?$/i;
-const EDIT_VERB = /^(?:.*[/\\])?(?:sed|perl|ruby)(?:\.exe)?$/i;
+// `gsed` is GNU sed under the name every Homebrew-on-a-Mac instruction uses, and it was missed
+// because `\bsed\b` finds no word boundary inside `gsed`. It is the same program.
+const EDIT_VERB = /^(?:.*[/\\])?(?:g?sed|perl|ruby)(?:\.exe)?$/i;
+
+// AN IN-PLACE FLAG IS A WORD, NOT A SUBSTRING. The gate used to be `\s-i(\.\w+)?\b` against the raw
+// segment, which required the `i` to sit immediately after the dash, so it caught `sed -i`,
+// `sed -i.bak` and `perl -i -pe` and missed everything else. Measured 2026-08-13, all ALLOWED
+// against product code: `perl -pi -e 's/a/b/' src/app.ts` — THE CANONICAL PERL IDIOM — plus
+// `perl -pi.bak -e`, `perl -ni -e`, `ruby -pi -e`, `sed --in-place`, `sed --in-place=.bak` and
+// `gsed -i`. Each was run against a real file first and each rewrote it in place.
+//
+// The bundle is matched as a WHOLE WORD of short option letters ending in `i`, with perl's optional
+// attached backup suffix. That anchoring is what keeps it honest: `perl -MList::Util -e '…'`
+// contains a lowercase `i`, and a "cluster containing an i" rule would read it as an in-place edit
+// and deny a read. Requiring the word to END at the `i` (or at its `.suffix`) rejects it. In all
+// three of these programs a lowercase short `i` means in-place and nothing else — the include-path
+// flag is uppercase `-I`.
+const IN_PLACE_FLAG = /^(?:-[A-Za-z]*i(?:\.[A-Za-z0-9]+)?|--in-place(?:=.*)?)$/;
 // Options that swallow the word after them, so it is not a positional. Short and specific: guessing
 // which options take values is how a positional scan turns an option's value into a destination.
 const CP_OPT_VALUE = /^(?:-S|--suffix|--exclude|--include|-e|--rsh|--files-from|--backup|--chmod)$/;
@@ -325,11 +453,16 @@ function teeTargets(seg) {
 // sed / perl / ruby -i — THE OPERANDS, NOT THE SCRIPT. `sed -i 's|old/a.ts|new/b.ts|' notes.md`
 // edits notes.md; the two paths in the expression are text. Without an -e/-f the script is the first
 // positional, so it is dropped; with one, every positional is a file.
+// It also OWNS THE SHAPE TEST now. The gate used to be a second regex over the raw segment, which
+// meant two different readings of "is this an in-place edit" that could drift; asking the same words
+// the targets come from is one reading. A verb with no in-place flag among its words is a read, and
+// reads are never denied.
 function inPlaceTargets(seg) {
   const toks = stripRedirections(words(seg));
   const vi = toks.findIndex((t) => EDIT_VERB.test(t));
   if (vi < 0) return [];
   const args = toks.slice(vi + 1);
+  if (!args.some((a) => IN_PLACE_FLAG.test(a))) return [];
   const pos = [];
   let scriptIsAnOption = false;
   for (let i = 0; i < args.length; i++) {
@@ -537,6 +670,37 @@ function writeCallTargets(cmd) {
 // errs in everywhere else.
 const HEREDOC_DELIM = /^[A-Za-z_]\w*$/;
 
+// ------------------------------------------------------------- THE REDIRECTION OPERATORS, ALL OF THEM
+// A previous pass taught this scan that a file descriptor is PART of the operator (`2> src/app.ts`
+// writes product code exactly as `> src/app.ts` does). It stopped there, and a fresh evaluator drove
+// the rest straight through on 2026-08-13 — every one of these was ALLOWED against product code:
+// `&> src/app.ts`, `&>> src/app.ts`, `&>src/app.ts`, `>| src/app.ts`, `>|src/app.ts`,
+// `>& src/app.ts`. Each was run in bash 5.2 first, and each created the file:
+//
+//     $ echo hi &> a.txt ; ls a.txt     -> a.txt        $ echo hi >| c.txt  -> c.txt
+//     $ echo hi &>> b.txt ; ls b.txt    -> b.txt        $ echo hi >|d.txt   -> d.txt
+//     $ echo hi >& e.txt ; ls e.txt     -> e.txt        $ echo dup >&1      -> no file (a dup)
+//
+// So the operator alternation is `&>`/`&>>` (stdout+stderr), `N>`/`N>>` with the optional `|`
+// override, and `N>&` — whose target is a FILE when it is a filename and a DESCRIPTOR when it is a
+// digit or `-`. `2>&1` and `2>/dev/null` are unaffected and were re-measured after the change: the
+// first is caught by the `(?!&)` after the operator on the plain branch and then by the candidacy
+// test on the `>&` branch (`1` has no extension), the second by the candidacy test alone.
+//
+// AND THE TARGET MAY BE A QUOTED WORD WITH A SPACE IN IT. `echo hi > "src/my app.ts"` was allowed
+// while `echo hi > "src/myapp.ts"` denied — one space between a catch and a miss, and every other
+// shape in this file (cp, tee, sed -i, the interpreter, Write) already handled a spaced path. The
+// old class `[^\s;&|<>'"]+` stopped at the quote AND at the space, so a quoted target was read as
+// the empty string. It is now three alternatives: a "…" word, a '…' word, or a bare run.
+//
+// THIS DOES NOT WEAKEN THE QUOTING RULE, and the pair that decides that is B-pr-body-arrow and
+// B-arrow-unquoted-is-a-real-redirect. Only the OPERATOR's offset is tested against codeMask(); a
+// quoted TARGET was always legitimate (`> "src/app.ts"` has its own case). A `>` inside a PR body is
+// still skipped because the `>` itself sits at a non-code offset, which is a fact about the operator
+// and not about what follows it. Reading a quoted word as a target and reading a quoted `>` as an
+// operator are different questions, and only the second one was ever the bug.
+const REDIRECT = /(?:^|[^0-9&>])(?:&>>?|\d*>>?\|?|\d*>&)\s*(?!&)(?:"([^"\n]+)"|'([^'\n]+)'|([^\s;&|<>'"]+))/g;
+
 // A heredoc operator at `i`, or null: `<<EOF`, `<<-EOF`, `<< 'EOF'`, `<<"END"`. `<<<` is a
 // here-string and not one. An unquoted delimiter must be a plain word, which keeps `$((a<<2))` from
 // registering a heredoc named `2` and blanking the rest of the command.
@@ -630,8 +794,14 @@ function codeMask(cmd) {
 }
 
 // The same split the segment loop has always used, carrying each segment's offset in the command so
-// a match inside one can be asked whether it is code. Splitting is unchanged: only the offsets are new.
-const SEGMENT = /\n|;|&&|\|\||\|/g;
+// a match inside one can be asked whether it is code.
+//
+// ONE THING IS NOT A PIPE: the `|` of a `>|` noclobber-override redirect. It is the second character
+// of a single redirection OPERATOR, and splitting there cut `echo hi >| src/app.ts` into `echo hi >`
+// and ` src/app.ts` — an operator with no target and a target with no operator, so the write was
+// invisible. Verified in bash 5.2 before it was believed: `echo hi >| c.txt` creates c.txt, and
+// `(echo hi >| f.txt)` writes rather than piping. A `|` anywhere else still splits.
+const SEGMENT = /\n|;|&&|\|\||(?<!>)\|/g;
 function segments(s) {
   const out = [];
   let start = 0;
@@ -725,21 +895,20 @@ function scanBash(cmd, cwd, root) {
     // filename in a PR body by the third alone, and `>_<` by all three. Bash coverage stays
     // best-effort by declaration; the Edit/Write path is the guarantee.
     if (!isGitMessageCommand(seg)) {
-      for (const m of seg.matchAll(/(?:^|[^0-9&>])\d*>>?\s*(?!&)(['"]?)([^\s;&|<>'"]+)\1/g)) {
+      for (const m of seg.matchAll(REDIRECT)) {
+        const target = m[1] ?? m[2] ?? m[3];
         if (!isCode[at + m.index + m[0].indexOf('>')]) continue;
-        if (!looksLikeFile(m[2])) continue;
-        const hit = check([m[2]], 'shell redirection into it', false);
+        if (!looksLikeFile(target)) continue;
+        const hit = check([target], 'shell redirection into it', false);
         if (hit) return hit;
       }
     }
     // tee / sponge.
     const tee = check(teeTargets(seg), 'tee/sponge writing it', false);
     if (tee) return tee;
-    // In-place edit.
-    if (/\b(?:sed|perl|ruby)\b[^\n]*\s-i(\.\w+)?\b/i.test(seg)) {
-      const hit = check(inPlaceTargets(seg), 'an in-place edit of it', true);
-      if (hit) return hit;
-    }
+    // In-place edit. The shape test lives inside inPlaceTargets() — see IN_PLACE_FLAG.
+    const inplace = check(inPlaceTargets(seg), 'an in-place edit of it', true);
+    if (inplace) return inplace;
     // Copy / move onto a path. git is exempt from this scan by declaration in the header.
     if (!/^\s*git\b/.test(seg.trim())) {
       const hit = check(cpTargets(seg, cwd), 'copying or moving over it', true);
@@ -770,13 +939,23 @@ function main(data) {
   const ti = data.tool_input;
   if (!ti || typeof ti !== 'object') quiet();
 
+  // THE CWD'S ROOT IS A FALLBACK, NOT A GATE — see the 2026-08-13 ruling in the header. It may be
+  // null, and null here no longer ends the invocation: a path carries its own tree, and whether this
+  // law is in force is a question about the TARGET. The silence for "not a lite repo" still happens,
+  // one layer down in classify(), where it is reached only after the target has also been asked.
   const cwd = resolveCwd(data.cwd);
   const root = findRoot(cwd) || (process.env.CLAUDE_PROJECT_DIR ? findRoot(resolveCwd(process.env.CLAUDE_PROJECT_DIR)) : null);
-  if (!root) quiet();                                     // not a lite repo — this law is not in force
 
   if (WRITE_TOOLS.has(tool)) {
-    const target = ti.file_path || ti.filePath || ti.path || ti.notebook_path || '';
-    if (!target) quiet();
+    // A TARGET THAT IS NOT A STRING IS NOT A PATH. `file_path: 42` denied with "This Write of 42 is
+    // denied" and `{"a":1}` denied naming `[object Object]` — String()-coerced by classify() and
+    // resolved against the repo root as if a number were a filename. That broke two promises at
+    // once: "a payload shape we do not recognise -> nothing to judge" (this file fails OPEN) and
+    // "A DENY NEVER INVENTS THE FILE IT IS DENYING". It is the same family as the `.jpg` the glob
+    // scan manufactured: a thing that cannot be a path was never a candidate.
+    const target = [ti.file_path, ti.filePath, ti.path, ti.notebook_path]
+      .find((v) => typeof v === 'string' && v !== '');
+    if (target === undefined) quiet();
     if (classify(target, cwd, root) !== 'denied') quiet();
     const rel = relOf(target, cwd, root);
     return deny(
