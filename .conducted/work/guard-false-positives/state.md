@@ -167,6 +167,55 @@ Deliberate narrowings, named rather than smuggled: verbs are matched as shell wo
 word splitting, which keeps `cp C:\temp\x.ts src\app.ts` denied at the cost of losing a target in
 `a\ b.txt`. That is a miss, which is the direction this file errs in everywhere.
 
+### Fresh evaluator, 2026-08-13 — all seven fixes confirmed, and nine holes found
+
+A black-box evaluator that never saw the build, briefed to defeat the guard rather than confirm it,
+drove ~290 payloads at it out-of-process and wrote nothing. **It confirmed every one of the seven
+fixes by behaviour, constructed from the descriptions above rather than from the corpus** — and then
+got product code past the guard in nine distinct shapes. This is the non-negotiable working: none of
+these were visible to the corpus, the builder, or me.
+
+**Contract violations — the header promises the opposite:**
+- **N1. `\\?\` extended-length and `//host/c$/` UNC spellings of an in-repo path are allowed** on the
+  Edit/Write path, which the header calls "the real guarantee". Every other spelling of the same
+  file denies. Both spellings were proved writable.
+- **N2. A cwd outside every lite repo disarms the guard for absolute in-repo paths.** The cwd gate
+  runs first and short-circuits, so the new "the path decides which tree, not the cwd" rule never
+  runs. **The header now contradicts itself** — it declares both that rule and "no CONDUCTOR.md at
+  or above the cwd → instant silence", and the mechanism cannot honour both.
+- **N3. A non-string `file_path` denies and invents a name** — `42`, `[object Object]`. Fails closed
+  where the header promises open, and it is the only surviving breach of "a deny never invents the
+  file it is denying".
+- **N4. The allow-set is case-sensitive on a case-insensitive filesystem.** `.CONDUCTED/roadmap.md`
+  and `readme.md` are denied. Those are the conductor's own files, so this is a residual false
+  positive of exactly the class this feature exists to kill.
+
+**Misses inside the declared best-effort Bash surface, ranked by what they cost:**
+- **G1. Only bare `>` and `>>` are matched.** `1>`, `2>`, `&>`, `>|`, their append forms and their
+  no-space forms all sail through — including `echo sdk.dir=/x 1> local.properties`, **which is the
+  guard's single genuine field catch defeated by one character.**
+- **G2.** A quoted redirect target containing a space is dropped. Redirection only; `cp`, `tee`,
+  `sed -i`, the interpreter shape and `Write` all catch it.
+- **G3.** In-place spellings: `perl -pi -e` (the canonical idiom), `perl -ni -e`, `ruby -pi -e`,
+  `sed --in-place`, `gsed -i`.
+- **G4.** Interpreter aliases (`node --eval`, `py -c`, `deno eval`, `php -r`) and write vocabulary
+  (`copyFileSync`, `renameSync`, `shutil.copy`, `os.rename`, `open(F,">",…)`).
+- **G5.** Extensionless and directory targets in the cp family — `cp -r /c/temp/mysrc src/` imports a
+  whole tree. Same root cause as the declared `> Makefile` miss.
+- **G6.** A junction pointing at a repo SUBDIRECTORY is invisible, which reaches
+  `.claude/hooks/conductor-guard.mjs` itself — the olchat case the header singles out. A junction to
+  the repo ROOT is correctly denied.
+
+**Confirmed clean:** 40 malformed payload shapes all exit 0 silent in ≤41ms; the 5s stdin timeout
+behaves exactly as declared; no catastrophic backtracking (20,000 quoted literals → 40ms); median
+37ms per invocation; `agent_id: ""`/`null`/`false` correctly read as absent; `bash -c`, `sh -c` and
+`eval` wrappers all still deny, so the word-splitting narrowing opened no wrapper bypass.
+
+**A ruling for the owner, not a defect.** The `git` exemption is now the widest hole in the guard:
+`git apply <patch>` writes arbitrary product code and is allowed by design, as is
+`git checkout <ref> -- <path>`. If the header keeps promising "git always works", it should say out
+loud that this includes an unguarded write path, rather than leaving it to be discovered.
+
 ### The miq sample, and a warning about how to use it
 
 miq supplied a second sample on 2026-08-13: **nine denials across the project's history — roughly
