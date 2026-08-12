@@ -1,0 +1,2 @@
+grep -nE "debootstrap|debian|ubuntu|SUITE|MIRROR|size|IMAGE_SIZE|seek|dd " \
+     image/build/build-image.sh image/build/customize-chroot.sh

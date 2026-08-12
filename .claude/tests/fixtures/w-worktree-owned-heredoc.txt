@@ -1,0 +1,4 @@
+python - <<'PY'
+import io
+io.open("worktrees/feat/research/data.json","w",encoding="utf-8").write("{}")
+PY

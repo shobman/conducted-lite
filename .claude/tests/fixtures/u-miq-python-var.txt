@@ -1,0 +1,7 @@
+python -c "
+import io,sys
+p='.conducted/work/zone-stop-crosstalk/state.md'
+s=io.open(p,encoding='utf-8').read()
+...
+io.open(p,'w',encoding='utf-8',newline='').write(s)
+"

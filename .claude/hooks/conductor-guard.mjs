@@ -40,6 +40,19 @@
 // CI, and .claude/** — that last one is the olchat case verbatim, and it is not carved out for
 // being "just a hook". A guard the conductor can rewrite unreviewed is the same failure again.
 //
+// WHICH TREE A PATH IS MEASURED AGAINST IS DECIDED BY THE PATH, NOT BY THE CWD. The allow-set is a
+// set of REPO-RELATIVE patterns, so "relative to which repo" is half the answer, and the cwd is the
+// wrong half. CONDUCTOR.md mandates worktrees at `worktrees/<feature>/` INSIDE the repo, and a
+// conductor dispatching into one sits in the main checkout while the feature's own `state.md` lives
+// under `worktrees/<feature>/.conducted/work/<feature>/`. Measured from the cwd that path
+// relativises to `worktrees/<feature>/.conducted/…`, which no OWNED pattern matches — so the guard
+// denied a write to `.conducted/**` in a message whose last line grants `.conducted/**`. It fails in
+// the other direction too: from inside a worktree, the main checkout's `src/app.ts` relativises to
+// `../../src/app.ts`, reads as outside the repo, and is silently allowed. So the root for a path is
+// THE NEAREST ANCESTOR OF THAT PATH holding .conducted/CONDUCTOR.md, and the cwd's root is only the
+// fallback for a path with no such ancestor. This needs no knowledge of what a worktree is; a linked
+// worktree has the file checked out, which is the whole mechanism.
+//
 // BASH COVERAGE IS BEST-EFFORT, AND THE Edit/Write PATH IS THE REAL GUARANTEE. Say it plainly: a
 // shell is a general-purpose machine and no regex owns it. What is here catches the obvious
 // file-writing shapes — redirection, tee, sed/perl -i, cp/mv onto a path, a heredoc or -c/-e fed to
@@ -47,6 +60,36 @@
 // QUESTION: resolve the target, and is it in the allow-set. The interpreter shape used to stop at
 // the mechanism and never ask, which denied a conductor rewriting his own `state.md` — a shape
 // decides WHETHER to look at a path, never stands in for looking at one.
+//
+// AND THE TARGET COMES FROM A POSITION, NEVER FROM A SCAN OF THE LINE. A shape answers two
+// questions in order: does this command write (a shape question), and WHAT does it write (a
+// POSITION question, answered per shape from the slot that shape puts its target in). The second one
+// used to be answered by collecting every file-shaped substring on the command line and asking
+// whether any of them was out of bounds — but a path a command MENTIONS and a path a command WRITES
+// are not the same thing, and a token scan cannot tell them apart. It cost four field denials, all
+// of them false, none of them noticed at the time: `cp docs/a.jpg /c/temp/out/` denied naming its
+// SOURCE because a directory has no extension; `cp docs/row-*.jpg "$D/"` denied naming `.jpg`,
+// a fragment the glob left behind, resolved against the repo root as if it were a file in it; a
+// heredoc rewriting `.conducted/standards.md` denied for a `creator.html` sitting inside the search
+// string it was replacing; and a `node -e` denied naming a `ramen.jpg` that appears only in the HTML
+// it was writing. Three regexes had already been added for three earlier cases of the same class and
+// a fourth class arrived anyway. So the scan is gone, and each shape reads its own slot:
+//
+//   > / >>                     the word after the operator
+//   tee / sponge               the non-flag words after the verb
+//   sed / perl / ruby -i       the OPERANDS, never the script — a path inside `s/…/…/` is not a target
+//   cp / mv / install /        THE LAST WORD AFTER OPTION STRIPPING. If it names a directory (a
+//   rsync / ln                 trailing slash, or it exists and is one), the targets are that
+//                              directory joined with each source's basename. `cp x /c/temp/out/`
+//                              therefore resolves OUTSIDE the repo, which the deny's own sentence
+//                              already calls exempt.
+//   interpreter + write call   THE ARGUMENT OF THE WRITE CALL, and nothing else.
+//
+// The words are split the way a shell splits them, so `"$D/"` is one word and `echo "cp x src/a.ts"`
+// contains no cp invocation. A word that cannot be a path was never a candidate: a glob, a variable,
+// a bare extension. That is different from a target that cannot be RESOLVED, and conflating the two
+// is what manufactured `.jpg`.
+//
 // A determined session gets past all of it, and that is accepted. GIT ALWAYS WORKS: the conductor commits, pushes, branches and runs worktree
 // commands, none of those shapes are matched, git is exempt from the cp/mv scan, and the git
 // subcommands that carry a human-written MESSAGE — commit, tag, notes, merge, revert, stash — are
@@ -77,11 +120,16 @@
 //                                 The guard is a TRACKED FILE, never a directory: git tracks files,
 //                                 not directories, so a directory-existence guard silently disarms
 //                                 the moment its last file moves.
-//   · a path we cannot resolve    variables, globs, anything outside the repo root -> unknown is
+//   · a path we cannot resolve    variables, globs, anything outside every lite root -> unknown is
 //                                 always an allow. A guard that guesses is a guard that gets turned
-//                                 off, and a disabled guard is worse than none.
+//                                 off, and a disabled guard is worse than none. THE ONE EXCEPTION IS
+//                                 NAMED AND DELIBERATE: a script fed to an interpreter that plainly
+//                                 writes files, whose target cannot be resolved, is DENIED — with a
+//                                 message that says the target could not be determined and NAMES
+//                                 NOTHING. One shape, one exit; there is no second pass hunting the
+//                                 line for a candidate to blame.
 //   · any unexpected throw        fails open
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { join, dirname, resolve as pathResolve, relative as pathRelative, isAbsolute } from 'node:path';
 
 const CONDUCTOR_REL = '.conducted/CONDUCTOR.md';
@@ -120,39 +168,180 @@ const norm = (p) => String(p || '').replace(/\\/g, '/').replace(/^\/([a-zA-Z])\/
 
 // The repo root is the nearest ancestor holding .conducted/CONDUCTOR.md. No child process: this
 // hook runs on EVERY tool call in the main thread, so it spawns nothing and reads nothing but
-// directory entries. A linked worktree has the file checked out too, so a conductor working inside
-// worktrees/<feature> is measured against that worktree's own tree, which is what it should be.
+// directory entries. Memoised because it is now asked once per candidate path rather than once per
+// invocation, and the answers repeat.
+const rootCache = new Map();
 function findRoot(start) {
   let dir = pathResolve(start);
+  const key = dir;
+  if (rootCache.has(key)) return rootCache.get(key);
+  let found = null;
   for (let i = 0; i < 40; i++) {
-    if (existsSync(join(dir, CONDUCTOR_REL))) return dir;
+    if (existsSync(join(dir, CONDUCTOR_REL))) { found = dir; break; }
     const up = dirname(dir);
-    if (up === dir) return null;
+    if (up === dir) break;
     dir = up;
   }
-  return null;
+  rootCache.set(key, found);
+  return found;
 }
+
+// WHICH TREE THIS PATH BELONGS TO. The nearest lite root ABOVE THE PATH ITSELF, falling back to the
+// root the cwd resolved to. See the header: a conductor in the main checkout editing a worktree's
+// own state.md, and a conductor in a worktree touching the main checkout's product code, are the two
+// directions of the same mistake, and both are answered by asking the path instead of the cwd.
+const rootOf = (abs, fallback) => findRoot(dirname(abs)) || fallback;
+
+const absOf = (raw, cwd) => {
+  const p = norm(raw);
+  return isAbsolute(p) ? pathResolve(p) : pathResolve(cwd, p);
+};
 
 // 'owned' | 'denied' | 'unknown'. Unknown is always an allow.
 function classify(raw, cwd, root) {
   const p = norm(raw);
   if (!p) return 'unknown';
   if (/[$*?`{}]|^-/.test(p)) return 'unknown';           // variables, globs, flags: we do not guess
-  const abs = isAbsolute(p) ? pathResolve(p) : pathResolve(cwd, p);
-  const rel = pathRelative(root, abs).replace(/\\/g, '/');
-  if (!rel || rel.startsWith('../') || rel === '..' || isAbsolute(rel)) return 'unknown';  // outside the repo
+  const abs = absOf(p, cwd);
+  const rel = pathRelative(rootOf(abs, root), abs).replace(/\\/g, '/');
+  if (!rel || rel.startsWith('../') || rel === '..' || isAbsolute(rel)) return 'unknown';  // outside any tree
   return OWNED.some((re) => re.test(rel)) ? 'owned' : 'denied';
 }
 
-const relOf = (raw, cwd, root) =>
-  pathRelative(root, isAbsolute(norm(raw)) ? pathResolve(norm(raw)) : pathResolve(cwd, norm(raw))).replace(/\\/g, '/');
+const relOf = (raw, cwd, root) => {
+  const abs = absOf(raw, cwd);
+  return pathRelative(rootOf(abs, root), abs).replace(/\\/g, '/');
+};
 
 // ---------------------------------------------------------------- Bash, best-effort by declaration
-// A token that looks like a file: has an extension-ish tail and is not a flag. Extension-less
-// targets (`> Makefile`) are missed, and that is a deliberate fail-open.
+// A word that looks like a file: has an extension-ish tail and is not a flag. Extension-less targets
+// (`> Makefile`) are missed, and that is a deliberate fail-open. It is a CANDIDACY test, never a
+// target-finder: every shape below already knows which slot its target sits in, and this only says
+// whether what is in that slot could be a filename at all.
 const looksLikeFile = (t) => /\.[A-Za-z0-9]{1,12}$/.test(t) && !t.startsWith('-');
-const rawTokens = (s) => String(s).match(/[A-Za-z0-9_.\-/\\~$:]{2,}/g) || [];
-const fileTokens = (s) => rawTokens(s).filter(looksLikeFile);
+
+// WORDS, THE WAY A SHELL SPLITS THEM. Every shape below reads a POSITION, so it needs the words and
+// not a scrape of file-shaped substrings. Quotes group and are stripped, so `"$D/"` is one word and
+// `echo "cp x src/app.ts"` is two words of which neither is a cp invocation. An unbalanced quote
+// swallows the rest of the segment into one word, which can only lose a target — a fail-open, in
+// keeping with the rest of this file.
+//
+// A BACKSLASH IS AN ORDINARY CHARACTER HERE, not an escape, and that is a choice rather than an
+// oversight. The shell would read `cp C:\temp\x.ts src\app.ts` as `C:tempx.ts` and `srcapp.ts`,
+// which is what the shell deserves, but this hook runs on Windows where an unquoted native path is
+// the thing a person actually types, and mangling it would judge a path nobody named. The price is
+// that `a\ b.txt` splits into two words and its target is lost — a miss, which is the direction
+// this file errs in everywhere else.
+function words(seg) {
+  const out = [];
+  let cur = '', started = false, q = null;
+  for (let i = 0; i < seg.length; i++) {
+    const c = seg[i];
+    if (q) {
+      if (c === q) q = null; else cur += c;
+      continue;
+    }
+    if (c === '"' || c === "'") { q = c; started = true; continue; }
+    if (/\s/.test(c)) { if (started || cur) out.push(cur); cur = ''; started = false; continue; }
+    cur += c;
+    started = true;
+  }
+  if (started || cur) out.push(cur);
+  return out;
+}
+
+// Redirections are not arguments. `2>/dev/null` trailing a cp is not its destination, and `<<'EOF'`
+// is not an operand of anything.
+function stripRedirections(toks) {
+  const out = [];
+  for (let i = 0; i < toks.length; i++) {
+    const t = toks[i];
+    if (/^\d*(?:>>?|<<?<?)$/.test(t)) { i++; continue; }   // the file is the NEXT word
+    if (/^\d*(?:>>?|<<?<?)\S/.test(t)) continue;           // glued: `2>/dev/null`, `>out.txt`
+    if (t === '&' || t === '&&' || t === '|') continue;
+    out.push(t);
+  }
+  return out;
+}
+
+const CP_VERB = /^(?:.*[/\\])?(?:cp|mv|install|rsync|ln)(?:\.exe)?$/i;
+const TEE_VERB = /^(?:.*[/\\])?(?:tee|sponge)(?:\.exe)?$/i;
+const EDIT_VERB = /^(?:.*[/\\])?(?:sed|perl|ruby)(?:\.exe)?$/i;
+// Options that swallow the word after them, so it is not a positional. Short and specific: guessing
+// which options take values is how a positional scan turns an option's value into a destination.
+const CP_OPT_VALUE = /^(?:-S|--suffix|--exclude|--include|-e|--rsh|--files-from|--backup|--chmod)$/;
+const SCRIPT_OPT = /^(?:-e|-f|--expression|--file)$/;
+
+const dirLike = (p, cwd) => {
+  if (/[/\\]$/.test(p)) return true;
+  try { return statSync(absOf(p, cwd)).isDirectory(); } catch { return false; }
+};
+const baseName = (p) => String(p).replace(/[/\\]+$/, '').split(/[/\\]/).pop();
+const intoDir = (dir, base) => `${String(dir).replace(/[/\\]+$/, '')}/${base}`;
+
+// cp / mv / install / rsync / ln — THE DESTINATION IS THE LAST ARGUMENT, which is a position and is
+// knowable. Guessing it as "the last word that looks like a file" silently made it a SOURCE whenever
+// the real destination was a directory or a variable, and the field's every copy out of the repo was
+// denied by naming the file being copied. If the destination names a directory, the real targets are
+// that directory joined with each source's basename — `cp docs/a.jpg /c/temp/out/` resolves to
+// `/c/temp/out/a.jpg`, outside the repo, an allow.
+function cpTargets(seg, cwd) {
+  const toks = stripRedirections(words(seg));
+  const vi = toks.findIndex((t) => CP_VERB.test(t));
+  if (vi < 0) return [];
+  const args = toks.slice(vi + 1);
+  const pos = [];
+  let destOpt = null;
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === '--') { pos.push(...args.slice(i + 1)); break; }
+    if (a.length > 1 && a.startsWith('-')) {
+      const m = a.match(/^(?:-t|--target-directory)=(.+)$/);
+      if (m) { destOpt = m[1]; continue; }
+      if (/^(?:-t|--target-directory)$/.test(a)) { destOpt = args[++i]; continue; }
+      if (CP_OPT_VALUE.test(a)) i++;
+      continue;
+    }
+    pos.push(a);
+  }
+  const dest = destOpt != null ? destOpt : pos.pop();
+  if (typeof dest !== 'string' || !dest) return [];
+  // `-t`/`--target-directory` says so in its name; otherwise ask the path and the filesystem.
+  if (destOpt == null && !dirLike(dest, cwd)) return [dest];
+  return pos.map((s) => intoDir(dest, baseName(s))).filter((t) => baseName(t));
+}
+
+// tee / sponge — the non-flag words after the verb.
+function teeTargets(seg) {
+  const toks = stripRedirections(words(seg));
+  const vi = toks.findIndex((t) => TEE_VERB.test(t));
+  if (vi < 0) return [];
+  return toks.slice(vi + 1).filter((a) => !(a.length > 1 && a.startsWith('-')));
+}
+
+// sed / perl / ruby -i — THE OPERANDS, NOT THE SCRIPT. `sed -i 's|old/a.ts|new/b.ts|' notes.md`
+// edits notes.md; the two paths in the expression are text. Without an -e/-f the script is the first
+// positional, so it is dropped; with one, every positional is a file.
+function inPlaceTargets(seg) {
+  const toks = stripRedirections(words(seg));
+  const vi = toks.findIndex((t) => EDIT_VERB.test(t));
+  if (vi < 0) return [];
+  const args = toks.slice(vi + 1);
+  const pos = [];
+  let scriptIsAnOption = false;
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === '--') { pos.push(...args.slice(i + 1)); break; }
+    if (a.length > 1 && a.startsWith('-')) {
+      if (SCRIPT_OPT.test(a)) { scriptIsAnOption = true; i++; continue; }
+      if (/^(?:-e|-f|--expression|--file)=/.test(a)) { scriptIsAnOption = true; continue; }
+      if (/^-[A-Za-z]*[ef]/.test(a)) scriptIsAnOption = true;   // bundled, e.g. `perl -pe`
+      continue;
+    }
+    pos.push(a);
+  }
+  return scriptIsAnOption ? pos : pos.slice(1);
+}
 
 // The git subcommands that carry a message a HUMAN WROTE, and only those. This is deliberately not a
 // list of "safe git commands" — which of git's hundred verbs cannot be turned into a write is not
@@ -180,36 +369,126 @@ function isGitMessageCommand(seg) {
 }
 
 // A write call named inside an interpreter body. Without one, a heredoc or -c/-e that merely
-// mentions a file is a read, and reads are never denied.
+// mentions a file is a read, and reads are never denied. This is the SHAPE test only — what the
+// script writes is read out of the call's argument below.
 const WRITE_CALL = /(writeFileSync|appendFileSync|writeFile|appendFile|createWriteStream|open\s*\([^)]*['"][wa]|write_text|write_bytes|writelines|\.write\s*\(|Set-Content|Out-File|Add-Content|File\.WriteAll)/i;
 const INTERPRETER = /\b(node|node\.exe|python|python3|deno|bun|perl|ruby|pwsh|powershell)\b/i;
 const HEREDOC = /<<[-~]?\s*['"]?[A-Za-z_]\w*/;
 const INLINE_SCRIPT = /\s-(c|e|Command)\b/;
 const WHY_INTERPRETER = 'a script fed to an interpreter, writing a file';
-
-// THE PATHS A SCRIPT NAMES, as opposed to the identifiers sitting next to them. A path handed to an
-// interpreter is a STRING LITERAL — `io.open('.conducted/work/x/state.md', 'w')`,
-// writeFileSync("docs/y.md", …), Set-Content -Path '.conducted/roadmap.md' — and the quoting is the
-// only thing that separates the path from the `io.open` in front of it. The field caught this branch
-// reporting `io.open` as "the file this command writes"; it is a function name scraped out of a body
-// by a token scan that cannot tell an identifier from a filename, and `.write` and `os.environ` come
-// out of the same scan the same way. Quoted, no whitespace, and an extension that STARTS WITH A
-// LETTER — which keeps `'w'`, `'utf-8'` and `"1.0.0"` out. Deliberately NOT a general path parser:
-// it is only ever asked whether everything it found is inside the allow-set, and everything it
-// misses leaves the answer at no.
-//
-// A `http(s)://` string is a URL, not a file, and naming one as the written path is the same lie as
-// naming `io.open`. Only those two schemes: node's fs takes a `file:` URL and writes through it, so
-// that one stays a path.
-const QUOTED_LITERAL = /(['"`])([^'"`\n]{1,300})\1/g;
-const QUOTED_PATH = /^[^\s]+\.[A-Za-z][A-Za-z0-9]{0,11}$/;
 const HTTP_URL = /^https?:\/\//i;
-function interpreterTargets(cmd) {
-  const out = [];
-  for (const m of String(cmd).matchAll(QUOTED_LITERAL)) {
-    const s = m[2].trim();
-    if (QUOTED_PATH.test(s) && !s.startsWith('-') && !HTTP_URL.test(s)) out.push(s);
+
+// THE PATH A SCRIPT WRITES IS THE ARGUMENT OF ITS WRITE CALL. Nothing else on the line is evidence.
+// This replaced a scan of every quoted literal in the body, which could not tell a target from a
+// path in the CONTENT being written, a filename in a search string, or a URL — and the content of a
+// write is exactly where arbitrary filenames appear. Two field denials came straight out of that:
+// a heredoc rewriting `.conducted/standards.md` denied for a `creator.html` inside the old text it
+// was replacing, and a `node -e` denied for a `ramen.jpg` inside an `<img src=…>` in the HTML it
+// wrote. The scan also carried a `strays` veto — any separator-carrying token anywhere on the line
+// could cancel an allow — which is the same bug wearing a hat, and it is gone with it. What that
+// veto existed to stop, `open('src/app' + '.ts','w')`, is handled better by the argument rule: a
+// concatenation is not a literal, so it does not resolve, and unresolved is already a deny.
+//
+// It is also STRICTLY MORE ABLE TO RESOLVE than the scan it replaces. That scan matched quoted
+// literals with a content class excluding all three quote characters, so ONE inner double quote
+// anywhere in a script body re-paired every quote after it and emptied the extraction — measured:
+// the same `python -c` writing an owned `state.md` allowed without an inner quote and denied with
+// one. A find-and-replace is the whole reason to reach for an interpreter, and it contains quoted
+// strings by definition, so the branch was least able to resolve a target exactly when the conductor
+// had the best reason to be there. Reading one call's argument list is anchored at the call and
+// cannot be thrown off by a quote three lines away. The quote class was NOT widened; widening it
+// would have left the class of bug alive.
+const FS_WRITE_FN = /\b(?:writeFileSync|appendFileSync|writeFile|appendFile|createWriteStream|WriteAllText|WriteAllBytes|WriteAllLines)\s*\(/g;
+const OPEN_CALL = /\bopen\s*\(/g;
+const WRITE_MODE = /^(?:mode\s*=\s*)?(['"])[wa]/;
+const PATH_WRITE_METHOD = /(['"][^'"\n]{0,300}['"]|[A-Za-z_$][\w$]*)\s*\)?\s*\.\s*write_(?:text|bytes)\s*\(/g;
+const PS_WRITE = /\b(?:Set-Content|Add-Content|Out-File)\b\s+(?:-(?:Path|LiteralPath|FilePath)\s+)?(['"]?)([^\s'";|]+)\1/gi;
+
+// The top-level arguments of the call whose `(` sits at `open`. Quote- and depth-aware, bounded, and
+// it returns null for a call it cannot close — an unterminated call is not evidence of anything.
+function callArgs(s, open, max = 12, span = 4000) {
+  const args = [];
+  let depth = 0, q = null, cur = '';
+  for (let i = open; i < s.length && i - open < span; i++) {
+    const c = s[i];
+    if (q) {
+      cur += c;
+      if (c === '\\') { cur += s[++i] || ''; continue; }
+      if (c === q) q = null;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === '`') { q = c; cur += c; continue; }
+    if (c === '(' || c === '[' || c === '{') { depth++; if (depth > 1) cur += c; continue; }
+    if (c === ')' || c === ']' || c === '}') {
+      depth--;
+      if (depth === 0) { args.push(cur.trim()); return args; }
+      cur += c;
+      continue;
+    }
+    if (c === ',' && depth === 1) {
+      args.push(cur.trim());
+      if (args.length >= max) return args;
+      cur = '';
+      continue;
+    }
+    cur += c;
   }
+  return null;
+}
+
+const unquote = (s) => s.replace(/\\(['"`\\])/g, '$1');
+
+// ONE HOP, AND THE HOP IS POSITIONAL. A name bound EXACTLY ONCE to a string literal in the same
+// command resolves to that literal — `p = ".conducted/standards.md"` … `io.open(p, "w")` is how the
+// field wrote it, and denying it is a false positive that costs nothing to route around with the
+// editor tool, so an honest deny would not have made the guard safe. Bound twice, bound to anything
+// other than a literal, or not bound here: it does not resolve. A SECOND HOP IS A GENERAL
+// INTERPRETER AND THERE IS NO END TO IT; anything that does not resolve in one hop fails to resolve,
+// and unresolved-but-write-shaped stays a deny.
+function bindingOf(name, cmd) {
+  if (!/^[A-Za-z_$][\w$]*$/.test(name)) return null;
+  const re = new RegExp(
+    `(?<![\\w$.=!<>+\\-*/%&|^])${name}\\s*=(?!=)\\s*(['"\`])((?:\\\\.|(?!\\1)[^\\\\\\n]){0,300})\\1`,
+    'g',
+  );
+  const seen = new Set();
+  for (const m of cmd.matchAll(re)) seen.add(unquote(m[2]));
+  return seen.size === 1 ? [...seen][0] : null;
+}
+
+// An argument expression to a path, or null for "could not be determined". A whole string literal,
+// or a name resolved by the single hop above. Anything else — a concatenation, a call, an index into
+// argv, an f-string — does not resolve, and that is the honest answer rather than a worse one.
+function resolveArg(expr, cmd) {
+  if (typeof expr !== 'string') return null;
+  const e = expr.trim();
+  if (!e) return null;
+  const lit = e.match(/^(['"`])((?:\\.|(?!\1)[^\\])*)\1$/);
+  if (lit) return unquote(lit[2]);
+  if (/^[A-Za-z_$][\w$]*$/.test(e)) return bindingOf(e, cmd);
+  return null;
+}
+
+// A resolved path is only usable if it is a path AT ALL. A variable or a glob left in it means the
+// bytes that will hit the filesystem are not the bytes here — that is unresolved, not "outside the
+// repo", and the difference is the whole of issue 2.
+const knowable = (p) => typeof p === 'string' && p !== '' && !/[$*?`{}]/.test(p);
+
+// One entry per write call found: the path it writes, or null when that could not be determined.
+function writeCallTargets(cmd) {
+  const out = [];
+  for (const m of cmd.matchAll(FS_WRITE_FN)) {
+    const args = callArgs(cmd, m.index + m[0].length - 1);
+    out.push(args ? resolveArg(args[0], cmd) : null);
+  }
+  for (const m of cmd.matchAll(OPEN_CALL)) {
+    const args = callArgs(cmd, m.index + m[0].length - 1);
+    if (!args) continue;                                          // unreadable: not evidence of a write
+    if (!args.slice(1).some((a) => WRITE_MODE.test(a))) continue; // a read, and reads are never denied
+    out.push(resolveArg(args[0], cmd));
+  }
+  for (const m of cmd.matchAll(PATH_WRITE_METHOD)) out.push(resolveArg(m[1], cmd));
+  for (const m of cmd.matchAll(PS_WRITE)) out.push(m[2].startsWith('-') ? null : m[2]);
   return out;
 }
 
@@ -217,8 +496,9 @@ function interpreterTargets(cmd) {
 // a write but no target could be resolved — a deny that names nothing rather than naming the wrong
 // thing; main() has the sentence for it.
 function scanBash(cmd, cwd, root) {
-  const check = (tokens, why) => {
-    for (const t of tokens) {
+  const check = (targets, why, mustLookLikeFile) => {
+    for (const t of targets) {
+      if (mustLookLikeFile && !looksLikeFile(t)) continue;
       if (SCRATCH_EXT.test(t)) continue;
       if (classify(t, cwd, root) === 'denied') return { rel: relOf(t, cwd, root), why };
     }
@@ -233,49 +513,39 @@ function scanBash(cmd, cwd, root) {
   // `.conducted/work/<feature>/state.md` with a Python heredoc was denied by a message that ended by
   // listing `.conducted/**` as his own. Denying a write to a path the same sentence grants is how a
   // guard loses its authority. Every other branch here resolves a target and checks it against the
-  // allow-set; so does this one now, through THE SAME classify()/OWNED/relOf trio — no second copy
-  // of either, because minted twice is how the two drift apart.
+  // allow-set; so does this one, through THE SAME classify()/OWNED/relOf trio — no second copy of
+  // either, because minted twice is how the two drift apart.
   //
-  // CONSERVATIVE WHERE IT CANNOT TELL, WHICH IS MOST OF THE TIME. The allow fires only when path
-  // literals came out of the script AND EVERY ONE OF THEM is inside the allow-set. No literals, one
-  // literal outside it, one path built at runtime — all still deny, on exactly the test that denied
-  // them before. An interpreter writing files is a builder-shaped move and the default stays deny;
-  // this only stops it firing on paths the conductor demonstrably owns. And allowing here skips THIS
-  // BRANCH ONLY: the segment loop below still runs, so `python3 <<EOF … EOF > src/app.ts` is still a
-  // redirect into product code and still denied, as is a script that shells out to `cp`.
+  // CONSERVATIVE WHERE IT CANNOT TELL, AND THERE IS EXACTLY ONE EXIT FOR NOT KNOWING. Every write
+  // call's argument is resolved. If one of them is product code, that is the deny and it is named.
+  // Otherwise, if any of them failed to resolve — including a shape that plainly writes but whose
+  // call could not be read at all — the branch denies and SAYS THE TARGET COULD NOT BE DETERMINED,
+  // naming nothing. It never substitutes a candidate found elsewhere on the line, and there is no
+  // second pass looking for one: this is the only place in the guard where a failure to know could
+  // be converted into a confident claim, and the field caught it doing exactly that twice. A target
+  // that resolves to a real path outside every lite root is not a failure to know; it allows, as it
+  // always has. And allowing here skips THIS BRANCH ONLY: the segment loop below still runs, so
+  // `python3 <<EOF … EOF > src/app.ts` is still a redirect into product code and still denied, as is
+  // a script that shells out to `cp`.
   if (INTERPRETER.test(cmd) && (HEREDOC.test(cmd) || INLINE_SCRIPT.test(cmd)) && WRITE_CALL.test(cmd)) {
-    const targets = interpreterTargets(cmd);
-    const quoted = new Set(targets);
-    // A token carrying a path SEPARATOR is credible as a path whether or not it came out whole, and
-    // it gets a VETO over the allow. This is what stops the allow being bought with one owned
-    // literal: `open('.conducted/a.md','w'); open('src/app' + '.ts','w')` yields exactly one
-    // extractable target, the owned one, while `src/app` sits there in plain sight. Extension-less
-    // on purpose — half a concatenated path has no extension, and this list only ever votes no.
-    // Identifiers get no vote: `io.open`, `.write`, `os.environ` carry no separator, which is the
-    // whole point of the separator test.
-    const strays = rawTokens(cmd).filter((t) => /[/\\]/.test(t) && !quoted.has(t) && !HTTP_URL.test(t));
-    const allOwned = targets.length > 0
-      && targets.every((t) => classify(t, cwd, root) === 'owned')
-      && strays.every((t) => classify(t, cwd, root) !== 'denied');
-    if (!allOwned) {
-      // Name a target only if it is credible AS A PATH: the script quoted it, or it carries a
-      // separator. A bare dotted token scraped out of a body — `io.open`, `.write`, `os.environ` —
-      // is an identifier, and reporting one as "the file this command writes" is a falsehood the
-      // field caught. Unnameable is not un-denied: the last line here is the ORIGINAL test,
-      // unchanged, so nothing that denied before stops denying — it loses its invented name, not
-      // its verdict, and main() has an honest sentence for a target it cannot determine. A stray
-      // earns a NAME only if it also looks like a file: `src/app` is enough to veto an allow, not
-      // enough to be announced as the file being written.
-      const nameable = targets.concat(strays.filter(looksLikeFile));
-      const named = check(nameable, WHY_INTERPRETER);
-      if (named) return named;
-      if (check(fileTokens(cmd), WHY_INTERPRETER)) return { rel: null, why: WHY_INTERPRETER };
+    const targets = writeCallTargets(cmd);
+    let unresolved = targets.length === 0;
+    let denied = null;
+    for (const t of targets) {
+      if (!knowable(t)) { unresolved = true; continue; }
+      if (HTTP_URL.test(t)) continue;                    // a URL is not a file this command writes
+      if (SCRATCH_EXT.test(t)) continue;
+      if (!denied && classify(t, cwd, root) === 'denied') {
+        denied = { rel: relOf(t, cwd, root), why: WHY_INTERPRETER };
+      }
     }
+    if (denied) return denied;
+    if (unresolved) return { rel: null, why: WHY_INTERPRETER };
   }
 
   for (const seg of String(cmd).split(/\n|;|&&|\|\||\|/)) {
     // Redirection. `2>&1` and `2>/dev/null` are excluded by the digit/& guards; /dev/null is outside
-    // the repo anyway, so it classifies as unknown.
+    // every lite root anyway, so it classifies as unknown.
     //
     // TWO EXEMPTIONS, both because the field caught this branch reading PROSE as a redirect. A commit
     // message describing the worktree convention contains `<repo>_<feature>`, which contains `>_<`:
@@ -287,8 +557,8 @@ function scanBash(cmd, cwd, root) {
     //     `git show HEAD:x > src/app.ts`, a real write to product code, which this narrowing catches
     //     again. What is knowable is where prose appears on a git command line, not which git verbs
     //     are safe.
-    //   · the target must LOOK LIKE A FILE — the same predicate the other branches use. `_` has no
-    //     extension and no separator. This inherits the deliberate fail-open that predicate already
+    //   · the target must LOOK LIKE A FILE — the same candidacy test the other branches use. `_` has
+    //     no extension and no separator. This inherits the deliberate fail-open that predicate already
     //     declares (`> Makefile` is missed), and that is the accepted price: the Edit/Write path is
     //     the real guarantee, and a Bash deny kills a whole chained command including its reads.
     // The two split the work: a heredoc BODY is on its own lines, so the newline split above makes it
@@ -298,25 +568,21 @@ function scanBash(cmd, cwd, root) {
     if (!isGitMessageCommand(seg)) {
       for (const m of seg.matchAll(/(?:^|[^0-9&>])>>?\s*(?!&)(['"]?)([^\s;&|<>'"]+)\1/g)) {
         if (!looksLikeFile(m[2])) continue;
-        const hit = check([m[2]], 'shell redirection into it');
+        const hit = check([m[2]], 'shell redirection into it', false);
         if (hit) return hit;
       }
     }
     // tee / sponge.
-    for (const m of seg.matchAll(/\b(?:tee|sponge)\b\s+(?:-\S+\s+)*(['"]?)([^\s;&|'"]+)\1/gi)) {
-      const hit = check([m[2]], 'tee/sponge writing it');
-      if (hit) return hit;
-    }
+    const tee = check(teeTargets(seg), 'tee/sponge writing it', false);
+    if (tee) return tee;
     // In-place edit.
     if (/\b(?:sed|perl|ruby)\b[^\n]*\s-i(\.\w+)?\b/i.test(seg)) {
-      const hit = check(fileTokens(seg), 'an in-place edit of it');
+      const hit = check(inPlaceTargets(seg), 'an in-place edit of it', true);
       if (hit) return hit;
     }
-    // Copy / move onto a path. The destination is the last file-shaped token.
-    if (/\b(?:cp|mv|install|rsync|ln)\b/.test(seg) && !/^\s*git\b/.test(seg.trim())) {
-      const toks = fileTokens(seg);
-      const dest = toks[toks.length - 1];
-      const hit = dest ? check([dest], 'copying or moving over it') : null;
+    // Copy / move onto a path. git is exempt from this scan by declaration in the header.
+    if (!/^\s*git\b/.test(seg.trim())) {
+      const hit = check(cpTargets(seg, cwd), 'copying or moving over it', true);
       if (hit) return hit;
     }
   }
@@ -370,8 +636,9 @@ function main(data) {
   if (!hit) quiet();
   // A DENY NEVER INVENTS THE FILE IT IS DENYING. When the scan cannot resolve a target it says so,
   // in those words. The alternative is what the field saw: `io.open`, a function name scraped out of
-  // a script body, presented as the path being written. A guard that names the wrong thing teaches
-  // the reader to stop believing the right things it says too.
+  // a script body, presented as the path being written; and `ramen.jpg`, a filename that appears
+  // only inside the HTML the command was writing. A guard that names the wrong thing teaches the
+  // reader to stop believing the right things it says too.
   const what = hit.rel
     ? `This command writes ${hit.rel} (${hit.why}), and writing product files is building. Denied.`
     : `This command feeds a script to an interpreter that appears to write files, and the target could ` +

@@ -1,0 +1,1 @@
+cp {{MAIN}}/build/out.ts worktrees/feat/src/app.ts
