@@ -123,11 +123,75 @@
 //                              therefore resolves OUTSIDE the repo, which the deny's own sentence
 //                              already calls exempt.
 //   interpreter + write call   THE ARGUMENT OF THE WRITE CALL, and nothing else.
+//   a shell with -c, and eval  THE INLINE SCRIPT, RE-ENTERED AS A COMMAND — see below.
 //
 // The words are split the way a shell splits them, so `"$D/"` is one word and `echo "cp x src/a.ts"`
 // contains no cp invocation. A word that cannot be a path was never a candidate: a glob, a variable,
 // a bare extension. That is different from a target that cannot be RESOLVED, and conflating the two
 // is what manufactured `.jpg`.
+//
+// AND A ONE-WORD PREFIX USED TO STEP AROUND ALL OF IT. Measured 2026-08-13 against the guard as it
+// stood, out of process, with no agent_id — every wrapper below was ALLOWED while its bare twin was
+// DENIED:
+//
+//     DENY   echo x > src/app.ts                  <- control
+//     ALLOW  bash -c "echo x > src/app.ts"        ALLOW  eval "echo x > src/app.ts"
+//     ALLOW  sh -c 'echo x > src/app.ts'          ALLOW  bash -c "cp /c/temp/a.ts src/app.ts"
+//     DENY   cp /c/temp/a.ts src/app.ts           <- control
+//
+// The cause was the two narrowings directly above, both working exactly as documented: a `-c`
+// argument is ONE QUOTED WORD, so words() hands the whole script back as a single datum in which no
+// `cp` verb exists, and codeMask() marks its interior as not-code, so the `>` inside it is not an
+// operator. Both readings are right about a quoted word and wrong about this one, because THE SHELL
+// IS ABOUT TO EXECUTE IT. A string a command MENTIONS and a string a command RUNS are not the same
+// thing, which is the same distinction the target-position rule above is built on, one level up.
+//
+// So a segment that invokes a shell with an inline script has that script RE-ENTERED AS A COMMAND
+// and run through this whole scan again — the same re-entry the codeMask parser already performs for
+// `$( )`, and the same move the interpreter branch makes on a script body. RECURSION, NOT A SECOND
+// COPY: every shape above is covered inside a wrapper because it is literally the same code, and
+// there is no second rule to drift out of step with the first. What counts as a shell: `bash`, `sh`,
+// `zsh`, `dash`, `ksh`, path-qualified (`/bin/bash`) and `.exe` spellings, plus `eval`, whose script
+// is its arguments joined.
+//
+// WHAT THIS DOES NOT REACH, measured against this build rather than guessed at, because a guard's
+// header claiming coverage it does not have is how the last "confirmed clean" was wrong:
+//   ALLOW  bash -cx "…"          the `c` is not last in its cluster — the declared cost, one screen down
+//   ALLOW  ash -c "…"            not in the verb set; `cmd /c` likewise
+//   ALLOW  echo $(bash -c "…")   `$(bash` is one word to the splitter, so no verb token exists. Note
+//                                that `$( … > src/app.ts)` IS still caught, by the redirect branch:
+//                                that `>` sits at a code offset. It is the wrapper's own quoting
+//                                that hides this one, and it is left rather than smuggled.
+//   ALLOW  S="…"; bash -c "$S"   the script is a variable. One hop is bindingOf()'s rule for the
+//                                interpreter branch and is deliberately not minted twice here.
+//   ALLOW  bash <<'EOF' … / bash -s   the script arrives on stdin, not on the command line
+// And two that DO deny, because the verb is looked for anywhere in the segment rather than at its
+// head: `busybox sh -c "…"` and `find … -exec sh -c '…'`, along with `sudo`, `env` and `xargs`.
+// An earlier draft of this paragraph asserted busybox was a miss; it was measured and it is not.
+//
+// THREE THINGS BOUND IT, and each is a case in the corpus:
+//   · A SHELL GIVEN A FILE runs a file this guard cannot see (`bash script.sh`, `bash -x script.sh`).
+//     That is an ALLOW, unchanged, and it is the same class as `node scripts/gen.js` — the option
+//     walk stops at the first non-option word and never re-enters anything.
+//   · THE `-c` IS THE LAST LETTER OF ITS CLUSTER, the way the shell parses `-lc`, `-ec`, `-xc`. This
+//     is the trap IN_PLACE_FLAG documents one screen down, in its other direction: a rule matching a
+//     letter ANYWHERE in a cluster reads options that merely contain the letter as the flag. Ending
+//     the word at the `c` costs `bash -cx '…'` (a real inline script bash accepts), a miss, which is
+//     the direction this file errs in everywhere.
+//   · THE RE-ENTRY IS BOUNDED AT TWO. `bash -c "bash -c '…'"` is legal and nests without limit, so
+//     the depth is capped: two wrappers are scanned in full, and a THIRD is denied as an unresolved
+//     write-shaped command that NAMES NOTHING, the same honest exit the interpreter branch has. Two
+//     because one wrapper is what people actually type and two is what `sudo bash -c "bash -c …"`
+//     and `find -exec sh -c` produce between them; past that a command line is obfuscating rather
+//     than working, and the cap is what stops a crafted string from being the hook's runtime.
+//
+// AND THE VERB'S OFFSET IS TESTED AGAINST codeMask(), exactly as a redirection operator's is. A
+// `bash -c "…"` sitting inside a heredoc body or a quoted `--body` is PROSE ABOUT a command, and
+// this file has two field incidents from reading prose as code — both `gh pr create`, both worked
+// around by switching tools, which is the worst outcome a guard can have. The showcase PR for this
+// very change quotes the table above, and would have denied itself. Only the VERB's position is
+// tested, never the script's: the script is quoted BY CONSTRUCTION, and blanking it would be the
+// same error as refusing to read a quoted redirect target.
 //
 // A determined session gets past all of it, and that is accepted. GIT ALWAYS WORKS: the conductor commits, pushes, branches and runs worktree
 // commands, none of those shapes are matched, git is exempt from the cp/mv scan, and the git
@@ -346,34 +410,50 @@ const looksLikeFile = (t) => /\.[A-Za-z0-9]{1,12}$/.test(t) && !t.startsWith('-'
 // the thing a person actually types, and mangling it would judge a path nobody named. The price is
 // that `a\ b.txt` splits into two words and its target is lost — a miss, which is the direction
 // this file errs in everywhere else.
-function words(seg) {
+//
+// `spans`, WHEN PASSED, is filled with each word's START OFFSET IN `seg`. Only the shell-wrapper
+// branch needs it, to ask codeMask() whether the verb it found is code the shell runs or prose that
+// mentions one. It is an optional out-parameter rather than a second splitter for the reason this
+// file gives everywhere: one reading of "what are the words here", not two that can drift apart.
+function words(seg, spans) {
   const out = [];
-  let cur = '', started = false, q = null;
+  let cur = '', started = false, q = null, at = 0;
   for (let i = 0; i < seg.length; i++) {
     const c = seg[i];
     if (q) {
       if (c === q) q = null; else cur += c;
       continue;
     }
-    if (c === '"' || c === "'") { q = c; started = true; continue; }
-    if (/\s/.test(c)) { if (started || cur) out.push(cur); cur = ''; started = false; continue; }
+    if (c === '"' || c === "'") { if (!started) at = i; q = c; started = true; continue; }
+    if (/\s/.test(c)) { if (started || cur) { out.push(cur); spans?.push(at); } cur = ''; started = false; continue; }
+    if (!started) at = i;
     cur += c;
     started = true;
   }
-  if (started || cur) out.push(cur);
+  if (started || cur) { out.push(cur); spans?.push(at); }
   return out;
 }
 
 // Redirections are not arguments. `2>/dev/null` trailing a cp is not its destination, and `<<'EOF'`
 // is not an operand of anything.
-function stripRedirections(toks) {
+//
+// `spans`, when passed, is the array words() filled and is REWRITTEN IN PLACE to stay aligned with
+// the words that survive. Callers that pass nothing get exactly the behaviour they always got.
+function stripRedirections(toks, spans) {
   const out = [];
+  const kept = [];
   for (let i = 0; i < toks.length; i++) {
     const t = toks[i];
     if (/^\d*(?:>>?|<<?<?)$/.test(t)) { i++; continue; }   // the file is the NEXT word
     if (/^\d*(?:>>?|<<?<?)\S/.test(t)) continue;           // glued: `2>/dev/null`, `>out.txt`
     if (t === '&' || t === '&&' || t === '|') continue;
     out.push(t);
+    kept.push(i);
+  }
+  if (spans) {
+    const s = kept.map((i) => spans[i]);
+    spans.length = 0;
+    for (const v of s) spans.push(v);
   }
   return out;
 }
@@ -477,6 +557,60 @@ function inPlaceTargets(seg) {
     pos.push(a);
   }
   return scriptIsAnOption ? pos : pos.slice(1);
+}
+
+// ------------------------------------- A SHELL WITH AN INLINE SCRIPT IS RUNNING CODE, NOT HOLDING IT
+// See the header's table: a one-word prefix defeated every shape above, because `-c`'s argument is
+// one quoted word and both the word split and the quote mask read a quoted word as data. It is data
+// right up until the shell runs it. This finds the script; scanBash() re-enters it.
+//
+// The verb may sit anywhere in the segment rather than at its head, which is what reaches
+// `sudo bash -c …`, `env FOO=1 bash -c …`, `nohup`, `time`, `xargs -I{} bash -c …` and
+// `find -exec sh -c …` without knowing anything about any of those programs.
+const SHELL_VERB = /^(?:.*[/\\])?(?:bash|sh|zsh|dash|ksh)(?:\.exe)?$/i;
+const EVAL_VERB = /^eval$/;
+// THE `-c` IS THE LAST LETTER OF ITS CLUSTER — `-c`, `-lc`, `-ec`, `-xc`. Anchored at the end for
+// the reason IN_PLACE_FLAG is: a "cluster containing a c" rule reads options that merely contain the
+// letter as the flag, and manufacturing a false deny out of the fix for a miss moves the error
+// rather than removing it. The leading `-` is single, so `--norc` and `--posix` are not this.
+const INLINE_SCRIPT_FLAG = /^-[A-Za-z]*c$/;
+// Shell options that swallow the word after them, so it is not the file argument. Short and
+// specific, the same discipline as CP_OPT_VALUE.
+const SHELL_OPT_VALUE = /^(?:-o|\+o|--rcfile|--init-file)$/;
+const MAX_NEST = 2;
+const WHY_NEST_DEPTH = 'shells nested deeper than the scan will follow';
+
+// Every inline script this segment hands to a shell, with the OFFSET OF ITS VERB in the segment so
+// the caller can ask codeMask() whether that verb is code. A shell given a FILE returns nothing: it
+// runs a file this guard cannot see, which is the same allow `node scripts/gen.js` already gets.
+function nestedScripts(seg) {
+  const spans = [];
+  const toks = stripRedirections(words(seg, spans), spans);
+  const out = [];
+  for (let i = 0; i < toks.length; i++) {
+    // `eval` concatenates ALL its arguments and executes the result, so the script is the rest of
+    // the segment joined — and nothing after it can be a separate invocation.
+    if (EVAL_VERB.test(toks[i])) {
+      const script = toks.slice(i + 1).join(' ').trim();
+      if (script) out.push({ script, at: spans[i] });
+      break;
+    }
+    if (!SHELL_VERB.test(toks[i])) continue;
+    for (let j = i + 1; j < toks.length; j++) {
+      const a = toks[j];
+      if (a === '--') break;                                   // what follows is a FILE
+      if (SHELL_OPT_VALUE.test(a)) { j++; continue; }
+      if (INLINE_SCRIPT_FLAG.test(a)) {
+        if (toks[j + 1]) out.push({ script: toks[j + 1], at: spans[i] });
+        i = j + 1;
+        break;
+      }
+      if (a.startsWith('-') || a.startsWith('+')) continue;     // some other option
+      i = j;                                                   // a FILE argument: not ours to read
+      break;
+    }
+  }
+  return out;
 }
 
 // The git subcommands that carry a message a HUMAN WROTE, and only those. This is deliberately not a
@@ -816,7 +950,8 @@ function segments(s) {
 // Returns { rel, why } for the first clearly-denied target, or null. `rel` is null when the shape is
 // a write but no target could be resolved — a deny that names nothing rather than naming the wrong
 // thing; main() has the sentence for it.
-function scanBash(cmd, cwd, root) {
+// `depth` is how many shell wrappers deep this call already is; see MAX_NEST and the header.
+function scanBash(cmd, cwd, root, depth = 0) {
   const check = (targets, why, mustLookLikeFile) => {
     for (const t of targets) {
       if (mustLookLikeFile && !looksLikeFile(t)) continue;
@@ -914,6 +1049,22 @@ function scanBash(cmd, cwd, root) {
       const hit = check(cpTargets(seg, cwd), 'copying or moving over it', true);
       if (hit) return hit;
     }
+    // A SHELL WITH AN INLINE SCRIPT — LAST, so a target this segment names in its own right is
+    // preferred over one found a level down, and re-entered through THE SAME SCAN so every shape
+    // above is covered inside a wrapper without a second copy of any rule.
+    //
+    // The verb's offset is tested against codeMask() for the same reason a redirection operator's
+    // is: a `bash -c "…"` inside a heredoc body or a quoted `--body` is prose ABOUT a command, and
+    // this file has two `gh pr create` denials from reading prose as code. Only the VERB is tested —
+    // the script is quoted by construction, exactly as a quoted redirect target is.
+    for (const { script, at: off } of nestedScripts(seg)) {
+      if (!isCode[at + off]) continue;
+      // The cap. An unresolved write-shaped command, and it NAMES NOTHING — the same honest exit
+      // the interpreter branch takes when it cannot read the target, for the same reason.
+      if (depth >= MAX_NEST) return { rel: null, why: WHY_NEST_DEPTH };
+      const nested = scanBash(script, cwd, root, depth + 1);
+      if (nested) return nested;
+    }
   }
   return null;
 }
@@ -978,8 +1129,18 @@ function main(data) {
   // a script body, presented as the path being written; and `ramen.jpg`, a filename that appears
   // only inside the HTML the command was writing. A guard that names the wrong thing teaches the
   // reader to stop believing the right things it says too.
+  // THE DEPTH CAP HAS ITS OWN SENTENCE, and it names nothing either. It is a different not-knowing
+  // from the interpreter branch's — there the script was read and its target would not resolve, here
+  // the scan declined to keep unwrapping — and saying "fed to an interpreter that appears to write
+  // files" would be a claim about a script this guard never looked at. Same discipline, one level up:
+  // a deny states what it actually knows.
   const what = hit.rel
     ? `This command writes ${hit.rel} (${hit.why}), and writing product files is building. Denied.`
+    : hit.why === WHY_NEST_DEPTH
+    ? `This command nests shell interpreters deeper than the scan follows — a shell whose script is ` +
+      `itself a shell running a script — so what the innermost one would run could not be determined ` +
+      `and is not provably one of yours. Denied. FIX: run the command without the wrappers, where ` +
+      `what it does is visible; or dispatch a builder if it is a build.`
     : `This command feeds a script to an interpreter that appears to write files, and the target could ` +
       `not be determined from the script, so it is not provably one of yours. An interpreter writing ` +
       `files is a builder-shaped move and the default is deny. Denied. If the target IS one of yours, ` +

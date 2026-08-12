@@ -1,0 +1,1 @@
+dash -c "echo x > src/app.ts"

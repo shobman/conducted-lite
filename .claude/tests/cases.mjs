@@ -1234,6 +1234,335 @@ export const cases = [
   },
 
   // ===========================================================================================
+  // GROUP B (continued) — THE SHELL-WRAPPER BYPASS, 2026-08-13.
+  //
+  // A ONE-WORD PREFIX DEFEATED EVERY SHAPE THE BASH SCAN KNOWS. Measured against the guard as it
+  // stood, out of process, with no agent_id — each wrapper ALLOWED, each bare twin DENIED:
+  //
+  //     DENY   echo x > src/app.ts                  <- control
+  //     ALLOW  bash -c "echo x > src/app.ts"        ALLOW  eval "echo x > src/app.ts"
+  //     ALLOW  sh -c 'echo x > src/app.ts'          ALLOW  bash -c "cp /c/temp/a.ts src/app.ts"
+  //     DENY   cp /c/temp/a.ts src/app.ts           <- control
+  //
+  // READ THE HISTORY BEFORE THE CASES. A fresh evaluator reported these same wrappers as DENYING and
+  // called the guard "confirmed clean"; that was wrong and was believed for a while. Every case
+  // below was reproduced against the real hook before it was written, and re-measured after.
+  //
+  // The cause was two documented narrowings working exactly as written: a `-c` argument is ONE
+  // QUOTED WORD, so the word split hands back the whole script as a single datum containing no `cp`
+  // verb, and codeMask() marks its interior as not-code, so the `>` inside it is not an operator.
+  // Both readings are right about a quoted word and wrong about this one, because the shell is about
+  // to execute it. The fix RE-ENTERS the script through the same scan rather than adding a second
+  // copy of any rule, which is why the sed/tee/cp cases below need no new machinery to be caught
+  // inside a wrapper.
+  //
+  // THE THREE GROUPS THAT BOUND IT, and none of these is decoration:
+  //   · the OWNED half — a blanket deny of anything containing `bash -c` would pass a deny-only
+  //     corpus. D-wrapper-owned-* and D-wrapper-nested-two-deep-owned are the half that fails if the
+  //     fix ever stops asking the allow-set.
+  //   · a shell handed a FILE — `bash script.sh` runs a file this guard cannot see, the same class
+  //     as `node scripts/gen.js`, and stays an ALLOW by declaration.
+  //   · PROSE THAT MENTIONS A WRAPPER — this file has two `gh pr create` denials in its history,
+  //     both worked around by switching tools. D-wrapper-prose-in-pr-body is the one that would have
+  //     been the third: MEASURED, with the mask check on the verb removed from a scratch copy of the
+  //     guard, it DENIES `src/app.ts` from a PR body describing this very fix. The other two prose
+  //     cases allow for a second reason as well (the wrapper sits inside one quoted word, so it is
+  //     never a verb token) and are belt-and-braces rather than load-bearing — said plainly so a
+  //     future reader does not over-read them.
+
+  // ---- the wrapper shapes, onto product code ---------------------------------------------------
+  {
+    id: 'D-wrapper-bash-c-redirect',
+    group: 'B',
+    what: '`bash -c "echo x > src/app.ts"` — the headline bypass',
+    why: 'ALLOWED before the fix, while its bare twin B-redirect-product denied. One word of prefix.',
+    payload: bash('d-wrapper-bash-c-redirect'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'D-wrapper-sh-c-redirect',
+    group: 'B',
+    what: "`sh -c 'echo x > src/app.ts'` — single-quoted, and a different shell",
+    payload: bash('d-wrapper-sh-c-redirect'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'D-wrapper-eval-redirect',
+    group: 'B',
+    what: '`eval "echo x > src/app.ts"` — eval executes its arguments joined',
+    payload: bash('d-wrapper-eval-redirect'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'D-wrapper-bash-c-cp',
+    group: 'B',
+    what: '`bash -c "cp /c/temp/a.ts src/app.ts"` — a different shape inside the same wrapper',
+    why: 'THE CASE THAT SAYS THE FIX IS RECURSION AND NOT A REDIRECT PATCH. Nothing was added for '
+      + 'cp inside a wrapper; the nested string goes through the same scan, so cp arrives already '
+      + 'covered. Its bare twin is B-cp-onto-product.',
+    payload: bash('d-wrapper-bash-c-cp'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /copying or moving/i },
+  },
+  {
+    id: 'D-wrapper-bash-lc',
+    group: 'B',
+    what: '`bash -lc "…"` — the `c` as the last letter of a cluster',
+    why: 'The shell parses the cluster and `-c` still takes the next argument. Matched by ending '
+      + 'the word at the `c`, which is the discipline IN_PLACE_FLAG documents in its other '
+      + 'direction: a letter matched ANYWHERE in a cluster reads innocent options as the flag.',
+    payload: bash('d-wrapper-bash-lc'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'D-wrapper-bash-ec',
+    group: 'B',
+    what: '`bash -ec "…"` — the same cluster shape, and the spelling scripts actually use',
+    payload: bash('d-wrapper-bash-ec'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'D-wrapper-zsh-c',
+    group: 'B',
+    what: '`zsh -c "…"`',
+    payload: bash('d-wrapper-zsh-c'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'D-wrapper-dash-c',
+    group: 'B',
+    what: '`dash -c "…"`',
+    payload: bash('d-wrapper-dash-c'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'D-wrapper-ksh-c',
+    group: 'B',
+    what: '`ksh -c "…"`',
+    payload: bash('d-wrapper-ksh-c'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'D-wrapper-bin-bash-c',
+    group: 'B',
+    what: '`/bin/bash -c "…"` — path-qualified, the way a script spells it',
+    why: 'The same lesson as `gsed`: a verb is a verb under every name the shell will find it by.',
+    payload: bash('d-wrapper-bin-bash-c'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'D-wrapper-bash-exe-c',
+    group: 'B',
+    what: '`bash.exe -c "…"` — the win32 spelling, and this hook runs on win32',
+    payload: bash('d-wrapper-bash-exe-c'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'D-wrapper-sudo-bash-c',
+    group: 'B',
+    what: '`sudo bash -c "…"` — the shell is not the first word',
+    why: 'The verb is looked for ANYWHERE in the segment, which reaches sudo, env, nohup, time, '
+      + '`xargs -I{} bash -c` and `find -exec sh -c` without knowing anything about any of them.',
+    payload: bash('d-wrapper-sudo-bash-c'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'D-wrapper-env-bash-c',
+    group: 'B',
+    what: '`env FOO=1 bash -c "…"` — the same, with an assignment in front',
+    payload: bash('d-wrapper-env-bash-c'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'D-wrapper-sed-inplace',
+    group: 'B',
+    what: "`bash -c \"sed -i 's/a/b/' src/app.ts\"` — the in-place shape inside a wrapper",
+    payload: bash('d-wrapper-sed-inplace'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /in-place/i },
+  },
+  {
+    id: 'D-wrapper-tee',
+    group: 'B',
+    what: '`bash -c "npm run build | tee src/app.ts"` — tee inside a wrapper, past a pipe',
+    why: 'The nested string is segmented like any other command, so the pipe splits inside the '
+      + 'wrapper exactly as it does outside one.',
+    payload: bash('d-wrapper-tee'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /tee/i },
+  },
+  {
+    id: 'D-wrapper-nested-two-deep',
+    group: 'B',
+    what: "`bash -c \"bash -c 'echo x > src/app.ts'\"` — a wrapper inside a wrapper",
+    why: 'Two layers are scanned in full, so the real target is still NAMED rather than lost to the '
+      + 'depth cap. A cap that fired at one layer would answer this with "could not be determined", '
+      + 'which is a worse answer than the true one.',
+    payload: bash('d-wrapper-nested-two-deep'),
+    expect: { decision: 'deny', named: 'src/app.ts', reason: /redirection/i },
+  },
+  {
+    id: 'D-wrapper-nested-at-the-limit',
+    group: 'B',
+    what: 'three wrappers deep — the depth cap, denying and NAMING NOTHING',
+    why: 'THE CAP IS AT TWO. Nesting is unbounded and a crafted string must not become this hook\'s '
+      + 'runtime, so the third layer is refused rather than unwrapped. It is treated as an '
+      + 'unresolved write-shaped command and it names nothing, which is the same honest exit '
+      + 'B-interpreter-unresolvable holds for the interpreter branch — a failure to know is never '
+      + 'converted into a confident claim. The innermost script here is a placeholder word on '
+      + 'purpose: the cap must fire on the SHAPE, before anything is read out of it.',
+    payload: bash('d-wrapper-nested-at-the-limit'),
+    expect: { decision: 'deny', named: null, reason: /nests shell interpreters/i },
+  },
+
+  // ---- the half that proves this is not a blanket deny of wrappers ------------------------------
+  {
+    id: 'D-wrapper-owned-redirect',
+    group: 'B',
+    what: '`bash -c "echo x > .conducted/roadmap.md"` — the conductor\'s own file, through a wrapper',
+    why: 'THE HALF THAT MATTERS. A fix that denied wrappers outright would pass every deny case '
+      + 'above and be exactly the failure this whole feature exists to kill: a deny of a path the '
+      + 'same message ends by granting.',
+    payload: bash('d-wrapper-owned-redirect'),
+    expect: { decision: 'allow' },
+  },
+  {
+    id: 'D-wrapper-owned-research-json',
+    group: 'B',
+    what: 'the same onto `research/…json` — allowed by the ALLOW-SET, not by the scratch exemption',
+    why: 'THE CONTROL FOR THE CONTROL. `.conducted/roadmap.md` is `.md`, which is scratch-exempt on '
+      + 'the Bash path, so on its own it cannot tell "the allow-set was reached" from "the '
+      + 'extension was exempt". research/** is owned and .json is not scratch, so this one can.',
+    payload: bash('d-wrapper-owned-research-json'),
+    expect: { decision: 'allow' },
+  },
+  {
+    id: 'D-wrapper-sh-c-owned',
+    group: 'B',
+    what: "`sh -c 'echo x > README.md'` — owned, through the other shell",
+    payload: bash('d-wrapper-sh-c-owned'),
+    expect: { decision: 'allow' },
+  },
+  {
+    id: 'D-wrapper-eval-owned',
+    group: 'B',
+    what: '`eval "echo x > research/…json"` — owned, through eval',
+    payload: bash('d-wrapper-eval-owned'),
+    expect: { decision: 'allow' },
+  },
+  {
+    id: 'D-wrapper-owned-cp',
+    group: 'B',
+    what: '`bash -c "cp /c/temp/a.json research/…json"` — the cp shape reaching the allow-set',
+    payload: bash('d-wrapper-owned-cp'),
+    expect: { decision: 'allow' },
+  },
+  {
+    id: 'D-wrapper-nested-two-deep-owned',
+    group: 'B',
+    what: 'a wrapper inside a wrapper, onto an owned path',
+    why: 'The recursion must reach the allow-set as readily as the deny-set at every depth, or the '
+      + 'cap would be a slow blanket deny. This is the case that catches an over-correction.',
+    payload: bash('d-wrapper-nested-two-deep-owned'),
+    expect: { decision: 'allow' },
+  },
+  {
+    id: 'D-wrapper-read-grep',
+    group: 'B',
+    what: '`bash -c "grep -n foo src/app.ts"` — a READ inside a wrapper',
+    why: 'A wrapper is not a write. Reads are never denied, wrapped or not.',
+    payload: bash('d-wrapper-read-grep'),
+    expect: { decision: 'allow' },
+  },
+  {
+    id: 'D-wrapper-read-npm-test',
+    group: 'B',
+    what: '`bash -c "npm test"` — the ordinary reason anyone types a wrapper at all',
+    payload: bash('d-wrapper-read-npm-test'),
+    expect: { decision: 'allow' },
+  },
+  {
+    id: 'D-wrapper-scratch-redirect',
+    group: 'B',
+    what: '`bash -c "npm test > build.log"` — the scratch exemption is inherited, not re-stated',
+    payload: bash('d-wrapper-scratch-redirect'),
+    expect: { decision: 'allow' },
+  },
+  {
+    id: 'D-wrapper-outside-the-repo',
+    group: 'B',
+    what: '`bash -c "echo x > /c/temp/out.ts"` — outside every lite root',
+    why: 'The nested scan resolves paths against the same trees the outer one does, so "anything '
+      + 'outside the repo is exempt" survives the wrapper.',
+    payload: bash('d-wrapper-outside-the-repo'),
+    expect: { decision: 'allow' },
+  },
+
+  // ---- a shell handed a FILE runs a file this guard cannot see ----------------------------------
+  {
+    id: 'D-wrapper-script-file',
+    group: 'B',
+    what: '`bash script.sh` — a shell running a FILE, and that is an allow by declaration',
+    why: 'The same class as `node scripts/gen.js`, which the guard\'s header already accepts: the '
+      + 'contents are not on the command line and this hook cannot see them. The option walk stops '
+      + 'at the first non-option word and re-enters nothing.',
+    payload: bash('d-wrapper-script-file'),
+    expect: { decision: 'allow' },
+  },
+  {
+    id: 'D-wrapper-option-then-script-file',
+    group: 'B',
+    what: '`bash -x scripts/build.sh` — an option that is not `-c`, then a file',
+    payload: bash('d-wrapper-option-then-script-file'),
+    expect: { decision: 'allow' },
+  },
+  {
+    id: 'D-wrapper-rcfile-then-script-file',
+    group: 'B',
+    what: '`bash --rcfile scripts/dev.bashrc scripts/build.sh` — an option that TAKES A VALUE',
+    why: 'THE CASE THAT KEEPS THE FLAG TEST HONEST. A looser reading — any option containing a `c` '
+      + '— takes `--rcfile` for the inline-script flag and re-enters its VALUE as a command. Same '
+      + 'family as `perl -MList::Util` in C-g3-perl-module-with-i: a false positive manufactured by '
+      + 'the fix for a miss is moving the error, not removing it.',
+    payload: bash('d-wrapper-rcfile-then-script-file'),
+    expect: { decision: 'allow' },
+  },
+
+  // ---- prose that MENTIONS a wrapper is not a wrapper -------------------------------------------
+  {
+    id: 'D-wrapper-prose-in-pr-body',
+    group: 'B',
+    what: 'a `bash -c "echo x > src/app.ts"` inside a `gh pr create` body — the third field case, '
+      + 'caught before it happened',
+    why: 'LOAD-BEARING, AND MEASURED. A heredoc body is split into segments on its newlines, so that '
+      + 'line really does present `bash`, `-c` and a script as three separate words. Only the '
+      + 'codeMask() test on the VERB\'s offset stops it: with that one line removed from a scratch '
+      + 'copy of the guard, this fixture DENIES src/app.ts. That is the same denial this file '
+      + 'records twice from the field, both worked around with --body-file — and the PR body for '
+      + 'this very change quotes the bypass table, so it would have denied itself.',
+    payload: bash('d-wrapper-prose-in-pr-body'),
+    expect: { decision: 'allow' },
+    notMentions: ['src/app.ts'],
+  },
+  {
+    id: 'D-wrapper-prose-in-commit-message',
+    group: 'B',
+    what: 'a commit message quoting the bypass — git always works',
+    why: 'BELT-AND-BRACES, said plainly rather than over-read: this one also allows because the '
+      + 'whole quoted message is a SINGLE WORD to the splitter, so no `bash` verb token exists. '
+      + 'Removing the mask check does not turn it red. It is here because a commit message '
+      + 'describing this fix is what a conductor will type next.',
+    payload: bash('d-wrapper-prose-in-commit-message'),
+    expect: { decision: 'allow' },
+  },
+  {
+    id: 'D-wrapper-prose-redirected-into-owned',
+    group: 'B',
+    what: 'prose quoting a wrapper, redirected into the conductor\'s own roadmap',
+    why: 'Both halves at once: the mention is data, and the real write target is owned. Also '
+      + 'belt-and-braces — the quoted prose is one word.',
+    payload: bash('d-wrapper-prose-redirected-into-owned'),
+    expect: { decision: 'allow' },
+  },
+
+  // ===========================================================================================
   // OBSERVED — found by this corpus, outside the fix this feature is scoped to. NOT COUNTED.
   //
   // Recorded rather than dropped, and not counted rather than counted, for one reason: the

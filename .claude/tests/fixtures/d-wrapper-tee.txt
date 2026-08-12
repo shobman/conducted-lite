@@ -1,0 +1,1 @@
+bash -c "npm run build | tee src/app.ts"

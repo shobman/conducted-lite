@@ -1,0 +1,1 @@
+echo "docs say bash -c 'echo x > src/app.ts' is denied" > .conducted/roadmap.md

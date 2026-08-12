@@ -1,0 +1,1 @@
+bash -c "echo x > /c/temp/out.ts"
