@@ -59,7 +59,6 @@ a feature lands, and the join between what shipped and what we believed at the t
 | Doc | Job |
 |---|---|
 | `VISION.md` | What winning looks like, ending in a falsifiable "we have won when…". Rewritten in place, dated when it moves |
-| `CONDUCTOR.md` | This page. One page, forever |
 | `standards.md` | The rules this project is held to, numbered, each with a link or a sentence of evidence. **Expected to grow** |
 | `roadmap.md` · `archive.md` | The ledger, forward-looking and an index and nothing else; and where completed items go so it stays that way |
 | `work/<feature>/problem.md` | What is happening, for whom, why it matters, what success looks like. Names no tool, vendor, schema or library |
@@ -71,18 +70,17 @@ a feature lands, and the join between what shipped and what we believed at the t
 **The roadmap is a ledger, and the headings ARE the status.** Nobody maintains a status field, so no
 status field can drift: `idea` a line, no folder · `new` has a folder · `accepted` has
 `solution.md` · `refined` has `tech-design.md` · `development` a branch or worktree exists ·
-`complete` you said so. The first five are **derived** and rewritten every session start, and a row
-is never moved down the ladder. `complete` is the only rung a machine will never assign. An `idea`
-is a hand-written line, preserved byte for byte. You change a status by making it true. **A branch
+`complete` you said so. The first four are **derived** and rewritten every session start, and a row
+is never moved down the ladder. An `idea` is a hand-written line, preserved byte for byte. You change a status by making it true. **A branch
 that merged and was deleted looks exactly like one that never existed**, so a shipped feature can
 read as unbuilt: the fact-check ASKS, with its evidence, and never moves the row.
 
 **Worktrees live at `worktrees/<feature>/` inside the repo** — gitignored, and the directory name is
 the feature name. One beside the repo as `<repo>_<feature>` is still read and reconciled, and
 reported as out of convention. **Gitignored hides them from git and from nothing else**, so exclude
-`worktrees/**` from anything that globs the tree — test runner, linter, typechecker, coverage — or
-your suite silently runs three copies of itself and a pass on `main` proves its neighbour. The tell
-is *a test count that changed when no test changed*.
+`worktrees/**` from anything that **walks the tree** — a test runner, a linter, a coverage pass, or a
+script this repo wrote itself. The category is "walks the tree", not "is a dev tool". The tell is
+*a test count that changed when no test changed*.
 
 **The chain is the point.** Where the documents exist, the solution must visibly solve the problem
 and the tech design must implement the solution. Check it when an artifact changes — a break is a
@@ -112,39 +110,35 @@ thorough one. Examples, never fill-in templates: a 200-line template produces 20
 5. Fixes go back to a builder, never to the evaluator.
 6. Accept, commit, and tell him what changed and where to look. Commits are plain and in his voice:
    no trailers, no em dashes, no bot identity, no second credential — lite is solo mode.
+7. **Write the next brief at the end of the session that produced the decisions**, never at the start
+   of the one that will execute them. A cold context reassembling a long session's rulings rebuilds
+   a subtly different picture and cannot tell which parts were corrections.
 
 ## What the machine does, so nobody has to remember
 
 **It informs. It never blocks and it never decides.** Nothing in this repo can stop a session. It
 will not move an item to `complete` because a PR merged, and it will not tick an acceptance
 criterion; it reports the disagreement — *"this reads as complete; the roadmap says development"* —
-and leaves it. **Three cadences, and each does only what its event can guarantee.**
+and leaves it. **`complete` and `idea` are the two rungs no machine ever assigns**: one is a
+judgement, the other has no folder to derive from.
 
-**Every turn** the Stop hook takes a *local glance* and speaks only about what you cannot see:
-commits that exist on this machine only, and uncommitted work in a worktree that is not in flight.
-Dirt in the MAIN checkout is deliberately never mentioned — it is already on your screen. Its silence
-means "nothing invisible is at risk", not "the tree is clean"; its figures are **vs your last fetch**.
+Three cadences, each doing only what its event can guarantee: a **per-turn glance** that speaks only
+about what you cannot see, whose silence means "nothing invisible is at risk" and never "the tree is
+clean"; a **session start** that regenerates the ledger and fact-checks every claim from git alone,
+which is why it is the safety net and needs no record; and a best-effort **session-end** record — a
+crash fires nothing, and `/clear` fires while the work continues, so it never claims work finished.
 
-**When the context ends** the SessionEnd hook runs `session-end.mjs`: nothing stranded, nothing
-unpushed (one real `ls-remote`), every worktree matched to a feature folder, a fresh `state.md` for
-every feature this session touched, and the record in `last-session.md`. It is **best-effort** — a
-crash fires nothing, and `/clear` and resume fire while the work continues, so the record says which
-happened and never claims the work finished. Every write is atomic.
-
-**Every session start** `session-start.mjs` regenerates the roadmap, fact-checks every `state.md`,
-and hands the session the orientation it opens with. **It is the safety net and needs no record**:
-uncommitted work, local-only commits, orphan worktrees and drift all come from git. It tidies two
-reversible things — sweeps `complete` into `archive.md`, removes a worktree provably merged and clean.
-
-Run `session-end.mjs` by hand to wrap up deliberately; `--abandon --reason "<why>"` records a dirty
-stop honestly, `--new-feature <name>` scaffolds a folder and a correct `state.md`. **What never
-blocking costs us:** a session can end with work stranded and nothing will stop it.
+**Each script documents its own guarantees, and `--help` is the reference — not this page.** A
+description kept by hand beside the thing it describes drifts from it: this section claimed five
+derived rungs, five checks and two tidy actions, where the code does four, four and three.
 
 **A worktree whose feature is declared `development` is IN FLIGHT: its uncommitted work is NAMED, not
 failed** — a live builder holds uncommitted work by design. Not a rubber stamp: the main checkout is
 never in flight, and a dirty worktree with no feature folder, or one declared anywhere but
 `development`, still fails. Anything else goes in `.conducted/allow-dirty`, tracked so the allowance
-shows up in review. Effort is an **estimate** you pass with `--effort`: never a budget.
+shows up in review.
+
+**What never blocking costs us:** a session can end with work stranded and nothing will stop it.
 
 The urge to add process here — a board, a taxonomy, a ceremony, a ledger of ledgers — is the heavy
 version leaking back; it needs two real incidents before it earns a line, and a rule you have broken

@@ -115,6 +115,46 @@ the invented name.
 real denials in the MukFork session; the third is miq's single genuine catch across nine denials —
 an Android build-config write. All three are right.
 
+7. **The guard denied the conductor writing `.conducted/**` inside a worktree.** Found by being
+   subject to it: an `Edit` of `worktrees/guard-false-positives/.conducted/work/.../state.md`, from
+   a session whose cwd was the main checkout, was denied by a message that listed `.conducted/**` as
+   owned. `findRoot()` walked up from the CWD, so the root resolved to the main checkout and the
+   target relativised to `worktrees/<feature>/.conducted/…`, which no OWNED pattern matches.
+   **Not an edge case:** CONDUCTOR.md mandates worktrees at `worktrees/<feature>/` inside the repo,
+   so this fires for every conductor who keeps a feature's `state.md` current while a builder works
+   in its worktree. It also falsified a promise in the guard's own header — *"a conductor working
+   inside `worktrees/<feature>` is measured against that worktree's own tree"* — which held only
+   when the cwd was inside the worktree.
+
+   Fixed by resolving the tree from **the target path** rather than the cwd. The builder rejected
+   the narrower fix of stripping a leading `worktrees/<name>/`, and was right to: the stripper
+   leaves the opposite hole open, where a cwd inside a worktree makes the main checkout's
+   `src/app.ts` relativise to `../../src/app.ts`, read as outside the repo, and be silently allowed.
+   It also hard-codes a directory name that is doctrine rather than mechanism. Both directions now
+   have corpus cases, and this entry was written through the path that was denied.
+
+### Corpus and fix landed 2026-08-13 — 71 counted cases, all passing
+
+Two things the tech design got wrong, returned as negative results rather than worked around:
+
+- **`argv[N]` → the Nth positional is not buildable, and was not built.** The design named it as one
+  of two knowable hops, using MukFork's `node -e '… writeFileSync(process.argv[1], html)'
+  "$D/look4.html"` as its example and expecting it to resolve outside the repo and allow. That
+  command is fixture A4, whose assertion is a deny that names nothing — the design contradicted the
+  corpus. It also breaks the design's own one-hop rule: `argv[1]` → `$D/look4.html` is one hop and
+  `$D` → literal is a second. The other half of the rule, a name bound once to a string literal, is
+  built and is what clears defects 5 and 6.
+- **Deleting the second pass broke a case that was passing for the wrong reason.**
+  `B-interpreter-unresolvable` denied only because `process.argv` tokenised as a file-shaped name
+  resolving inside the repo — a right verdict reached by naming an identifier as a file. Carrying it
+  needed a new positive rule: **write-shaped plus any unresolved target = deny, naming nothing.**
+  That is the single exit from indeterminacy the design asked for, arrived at from the other side.
+
+Deliberate narrowings, named rather than smuggled: verbs are matched as shell words, so
+`echo "cp x src/app.ts"` no longer reads as a `cp` invocation; and `\` is an ordinary character in
+word splitting, which keeps `cp C:\temp\x.ts src\app.ts` denied at the cost of losing a target in
+`a\ b.txt`. That is a miss, which is the direction this file errs in everywhere.
+
 ### The miq sample, and a warning about how to use it
 
 miq supplied a second sample on 2026-08-13: **nine denials across the project's history — roughly
