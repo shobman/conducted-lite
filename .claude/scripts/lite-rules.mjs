@@ -46,6 +46,15 @@ export const LAST_REL = `${CONDUCTED}/last-session.md`;
 export const ALLOW_REL = `${CONDUCTED}/allow-dirty`;
 export const END_REL = '.claude/scripts/session-end.mjs';
 export const START_REL = '.claude/scripts/session-start.mjs';
+// The per-turn glance. It is here rather than in the hook because the hook now WRITES, and a facts
+// block records WHO wrote it — so this string is read back by the comparison that decides whether
+// anything needs writing at all. Two copies of it and the glance rewrites every block, every turn.
+export const GLANCE_REL = '.claude/hooks/stop-glance.mjs';
+// Where the per-turn glance remembers what it last said. OUTSIDE THE TRACKED TREE ON PURPOSE: a hook
+// that fires every turn must not be a per-turn source of dirt in the tree it audits, and this is a
+// note to itself about one clone rather than state anyone would review. It is joined onto the git
+// COMMON dir of the main checkout, so every linked worktree of one clone shares one memory.
+export const GLANCE_SNAPSHOT = 'conducted-lite-glance.json';
 
 export const FACTS_START = '<!-- conducted-lite:facts:start -->';
 export const FACTS_END = '<!-- conducted-lite:facts:end -->';
@@ -110,11 +119,17 @@ const HEAD_RE = new RegExp(`^##\\s+(${STATUSES.join('|')})\\s*$`, 'i');
 // Parse the ledger block into: per-status HUMAN lines (anything that is not a generated row) and
 // per-status generated ROWS. That split is the whole ownership model of roadmap.md, and it is
 // uniform: `idea` needs no special case, because an idea IS a human line and nothing else.
+// SPLIT ON '\n' AND KEEP THE '\r'. It used to split on /\r?\n/, which silently ATE the carriage
+// return off every hand-written line in a CRLF file — and `renderLedger` then rejoined with '\n', so
+// one run of session-start or of the per-turn glance rewrote a Windows editor's lines as LF. The
+// ledger's generated rows are the machine's and are LF; the human lines are the human's and are now
+// whatever bytes they were. A trailing '\r' is invisible to both matchers below: HEAD_RE runs on
+// `raw.trim()`, and ROW_RE is anchored at the start of the line.
 export function parseLedger(body) {
   const sections = new Map(STATUSES.map((s) => [s, { human: [], rows: [] }]));
   const preamble = [];
   let cur = null;
-  for (const raw of String(body).split(/\r?\n/)) {
+  for (const raw of String(body).split('\n')) {
     const h = raw.trim().match(HEAD_RE);
     if (h) { cur = h[1].toLowerCase(); continue; }
     const m = raw.match(ROW_RE);

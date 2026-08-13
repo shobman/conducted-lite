@@ -50,7 +50,10 @@ this law's job is to damp that, not amplify it.
    cause before trusting it. **A summary is never a source**: when it disagrees with what it
    summarises the source wins, and the summary is a defect to fix where it lives. **Check the
    instrument before believing a null** — an uninstalled tool returns a confident zero.
-4. **State lives in files.** If it matters it is in the repo. A dead session loses nothing.
+4. **State lives in files, in the turn it became true.** A decision is recorded when it is made,
+   an issue when it is found, evidence when it lands. The machinery refreshes the machine facts
+   each turn and session-end verifies the record — it is never the first writer of anything. A
+   dead session loses nothing only because of this.
 5. **Research grounds decisions.** Every build starts by finding out — competitors, best practice,
    legislation, prior art — and what you learn lands in `research/`, cited by what follows.
 6. **Pivots are success.** Everything known at the start is information, not a contract. When new
@@ -136,11 +139,12 @@ criterion; it reports the disagreement — *"this reads as complete; the roadmap
 and leaves it. **`complete` and `idea` are the two rungs no machine ever assigns**: one is a
 judgement, the other has no folder to derive from.
 
-Three cadences, each doing only what its event can guarantee: a **per-turn glance** that speaks only
-about what you cannot see, whose silence means "nothing invisible is at risk" and never "the tree is
-clean"; a **session start** that regenerates the ledger and fact-checks every claim from git alone,
-which is why it is the safety net and needs no record; and a best-effort **session-end** record — a
-crash fires nothing, and `/clear` fires while the work continues, so it never claims work finished.
+Three cadences, each doing only what its event can guarantee: a **per-turn glance** that refreshes
+the machine facts when reality moved and speaks only about what CHANGED — its silence means nothing
+invisible changed, never that the tree is clean; a **session start** that regenerates the ledger and
+fact-checks every claim from git alone, which is why it is the safety net and needs no record; and a
+best-effort **session-end** record that verifies rather than remembers — a crash fires nothing, and
+`/clear` fires while the work continues, so it never claims work finished.
 
 **Each script documents its own guarantees, and `--help` is the reference — not this page.** A
 description kept by hand beside the thing it describes drifts from it: this section claimed five

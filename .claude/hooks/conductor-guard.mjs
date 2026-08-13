@@ -133,8 +133,8 @@
 //   cp / mv / install /        THE LAST WORD AFTER OPTION STRIPPING. If it names a directory (a
 //   rsync / ln                 trailing slash, or it exists and is one), the targets are that
 //                              directory joined with each source's basename. `cp x /c/temp/out/`
-//                              therefore resolves OUTSIDE the repo, which the deny's own sentence
-//                              already calls exempt.
+//                              therefore resolves OUTSIDE the repo, which is in no lite tree at all
+//                              and is therefore an allow — see classify().
 //   interpreter + write call   THE ARGUMENT OF THE WRITE CALL, and nothing else.
 //   a shell with -c, and eval  THE INLINE SCRIPT, RE-ENTERED AS A COMMAND — see below.
 //
@@ -1387,13 +1387,9 @@ function main(data) {
     if (classify(target, cwd, root) !== 'denied') quiet();
     const rel = relOf(target, cwd, root);
     return deny(
-      `Non-negotiable 1: you dispatch, you review, you never build. This ${tool} of ${rel} is denied. ` +
-      `The point is not ceremony, it is that a context which did not write the change reads it: the first ` +
-      `field adoption shipped a dead safety feature and reported it working, because the conductor was also ` +
-      `the builder and nobody reviewed the diff. FIX: dispatch a builder — mission, acceptance in one binary ` +
-      `line, files in and out of bounds, standards cited by number, self-check commands — then review what ` +
-      `comes back and commit it. A genuine one-line fix is a one-line brief; brief it anyway, because the ` +
-      `fresh pair of eyes is the thing you are buying, not the typing. YOU STILL OWN: ${OWNED_SUMMARY}.`
+      `Non-negotiable 1: This ${tool} of ${rel} is denied — the conductor dispatches, never builds. ` +
+      `FIX: brief a builder and review what comes back; a one-line fix is a one-line brief. ` +
+      `YOU STILL OWN: ${OWNED_SUMMARY}.`
     );
   }
 
@@ -1412,24 +1408,16 @@ function main(data) {
   // files" would be a claim about a script this guard never looked at. Same discipline, one level up:
   // a deny states what it actually knows.
   const what = hit.rel
-    ? `This command writes ${hit.rel} (${hit.why}), and writing product files is building. Denied.`
+    ? `This command writes ${hit.rel} (${hit.why}), and is denied — the conductor dispatches, never ` +
+      `builds. Git, reads, builds, tests and installs are never blocked. FIX: brief a builder.`
     : hit.why === WHY_NEST_DEPTH
-    ? `This command nests shell interpreters deeper than the scan follows — a shell whose script is ` +
-      `itself a shell running a script — so what the innermost one would run could not be determined ` +
-      `and is not provably one of yours. Denied. FIX: run the command without the wrappers, where ` +
-      `what it does is visible; or dispatch a builder if it is a build.`
-    : `This command feeds a script to an interpreter that appears to write files, and the target could ` +
-      `not be determined from the script, so it is not provably one of yours. An interpreter writing ` +
-      `files is a builder-shaped move and the default is deny. Denied. If the target IS one of yours, ` +
-      `name it as a plain quoted path in the script — or edit it with the editor tool, which is the ` +
-      `better move anyway.`;
-  return deny(
-    `Non-negotiable 1: you dispatch, you review, you never build. ${what} FIX: dispatch a builder and review what ` +
-    `comes back — a fresh context reading the change is the guarantee, not the ceremony; a genuine one-line ` +
-    `fix is a one-line brief. Git, reads, builds, tests and installs are never blocked, so if you meant to ` +
-    `inspect rather than write, run the read. Scratch output (.md .txt .log .out .tmp .diff .patch) and ` +
-    `anything outside the repo are exempt. YOU STILL OWN: ${OWNED_SUMMARY}.`
-  );
+    ? `This command nests shell interpreters deeper than the scan follows, so what the innermost one ` +
+      `would run could not be determined. Denied. FIX: run it without the wrappers, where what it ` +
+      `does is visible; or brief a builder if it is a build.`
+    : `This command feeds a script to an interpreter that writes files, and the target could not be ` +
+      `determined from the script. Denied. FIX: name the target as a plain quoted path in the ` +
+      `script, or edit it with the editor tool.`;
+  return deny(`Non-negotiable 1: ${what} YOU STILL OWN: ${OWNED_SUMMARY}.`);
 }
 
 // ---- stdin, with a timeout: this hook runs on every tool call, so it must never hang one.

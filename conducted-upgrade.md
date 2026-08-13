@@ -119,14 +119,23 @@ exactly this clone and nothing further:
 
 **APPLY** — via a dispatched builder, per the machinery rule:
 
-1. Copy verbatim from the clone into the local repo:
-   `.claude/hooks/conductor-guard.mjs` · `.claude/scripts/session-end.mjs` ·
-   `.claude/scripts/session-start.mjs` · `.claude/tests/` (the entire directory, fixtures included;
-   it is new). The two scripts change **help text only** — the whole diff is inside their `HELP`
-   string and every byte outside it is identical, so no behaviour, no flag, no exit code. They
-   import `.claude/scripts/lite-core.mjs` and `lite-rules.mjs`, which are **not** copied and have
-   not changed since the first release; if the local pair has been modified, that is the machinery
-   rule's stop.
+1. Copy verbatim from the clone into the local repo, **as one set**:
+   `.claude/hooks/conductor-guard.mjs` · `.claude/hooks/stop-glance.mjs` ·
+   `.claude/scripts/lite-core.mjs` · `.claude/scripts/lite-rules.mjs` ·
+   `.claude/scripts/lite-derive.mjs` · `.claude/scripts/session-end.mjs` ·
+   `.claude/scripts/session-start.mjs` · `.claude/scripts/migrate-from-full.mjs` ·
+   `.claude/tests/` (the entire directory, fixtures included; it is new).
+   **The set is copied whole because the clone is always current, and a partial copy of a coherent
+   set fails loud at best** — `session-start.mjs` and `session-end.mjs` import `lite-core.mjs`,
+   which imports `lite-rules.mjs` and `lite-derive.mjs`, so taking the scripts without the
+   libraries dies at import (`does not provide an export named 'bytesOf'`) before a line of them
+   runs. If the local copies have been modified, that is the machinery rule's stop.
+   **Corrected 2026-08-13:** this step used to say the two session scripts changed *help text only*
+   and that `lite-core.mjs` and `lite-rules.mjs` were **not** copied because they had not changed
+   since the first release. Both statements are now false — the state-package entry at the foot of
+   this ledger rewrote both libraries, added `lite-derive.mjs` beside them, and reshaped both
+   session scripts — so the list above is the whole coherent set, and what it lands is described by
+   that last entry rather than by this one.
 2. **SELF-CHECK, must pass before commit:** from the local repo root,
    `node .claude/tests/guard.test.mjs` exits 0 with every counted case passing. The corpus drives
    the guard out-of-process and resolves its paths off its own location, so a foreign repo sees the
@@ -213,10 +222,13 @@ the guard entry before this ruling landed, which received a `session-start.mjs` 
 was help text only.
 
 **APPLY** — via a dispatched builder, per the machinery rule: copy `.claude/scripts/session-start.mjs`
-verbatim from the clone. That single file is the whole change. It supersedes the guard entry's
-"help text only" description of this script — the tidy list gains a fourth item and the help gains
-the paragraph documenting it. `lite-core.mjs` and `lite-rules.mjs` are still **not** copied and
-still have not changed.
+verbatim from the clone. That single file was the whole change when this entry was written — the
+tidy list gains a fourth item and the help gains the paragraph documenting it.
+**Corrected 2026-08-13:** this entry used to add that `lite-core.mjs` and `lite-rules.mjs` were
+still **not** copied and still unchanged. They have since changed, and `lite-derive.mjs` has joined
+them, so they now travel with the guard entry's set above instead of being left behind — which is
+the same reason a repo that applied that set today already holds this file and finds this DETECT
+already passing.
 
 **SELF-CHECK, must pass before commit**, from the local repo root:
 
@@ -234,3 +246,104 @@ A failing self-check is a stop-and-report: revert nothing, the working tree diff
 Say this plainly to the owner in advance, because the first run after this entry may delete several
 long-dead local branches at once, each line naming its containment proof and its one-line undo.
 **That is the ruling taking effect, not a fault.**
+
+## 2026-08-13 — state is kept true per turn, and the machinery speaks in facts (MACHINERY)
+
+**WHY.** State used to be maintained only at session boundaries, and the owner supplied the cadence
+by asking. Between those boundaries the ledger and every facts block were simply false — a feature
+folder created mid-session read as an orphan worktree until someone re-ran session-start, and it
+looked like a fault each time. The per-turn glance now refreshes the machine facts when reality
+moves: it writes **only** where the derived content differs from the bytes already on disk, so a
+run that changes nothing touches nothing — no mtime, no dirt; it splices at the **byte** level
+around every human region, so prose a person wrote is returned exactly as it was given; it nags
+**once** when a feature moved this turn but its Decisions/Issues did not — the machine detects, the
+conductor writes, the owner is never asked; and it speaks only what CHANGED, with no preamble and
+no philosophy, per the owner's output-voice ruling. A message that is always there is wallpaper,
+read once and then never again including on the turn it finally matters. Three adversarial
+evaluation rounds: the destruction class — a hook eating bytes a human wrote — is closed and proven
+byte-exact, hostile shapes land intact-or-skipped-and-named, and hanging git is bounded to about
+ten seconds for the whole run with the skip named rather than swallowed.
+
+**DETECT.** `.claude/scripts/lite-derive.mjs` is absent, **or** `.claude/hooks/stop-glance.mjs`
+does not contain the string `Updated state recorded`. Either one means this entry is needed. Both
+are ordinary source-file greps and read forwards — unlike the branch-tidy entry above, no file here
+quotes its own superseded text back at you.
+
+**PRECONDITION.** The machinery rule above: unmodified since adoption, or stop.
+
+**FETCH.** The same shallow clone as the guard entry, and nothing further:
+
+    git clone --depth 1 https://github.com/shobman/conducted-lite <tmp>
+
+**APPLY** — via a dispatched builder, per the machinery rule: copy verbatim from the clone the full
+set, for the reason the guard entry gives — `.claude/hooks/stop-glance.mjs` ·
+`.claude/hooks/conductor-guard.mjs` · `.claude/scripts/lite-core.mjs` ·
+`.claude/scripts/lite-rules.mjs` · `.claude/scripts/lite-derive.mjs` ·
+`.claude/scripts/session-start.mjs` · `.claude/scripts/session-end.mjs` ·
+`.claude/scripts/migrate-from-full.mjs` · `.claude/tests/` (the whole directory). A repo that
+applied the guard entry from today's clone already has these bytes and finds this DETECT passing —
+say so and move on, **but its ADOPT below still applies**: the bytes arrived, so the glance is live
+and the owner is owed the one-line warning either way.
+
+**SELF-CHECK, must pass before commit**, from the local repo root:
+
+1. `node .claude/tests/guard.test.mjs` exits 0 with every counted case passing. The corpus drives
+   the guard out-of-process and resolves its paths off its own location, so a foreign repo sees the
+   same counted total and the same verdicts as the canonical one.
+2. Run the glance twice, out-of-process, with the repo named by environment rather than by cwd —
+   stdin `{"session_id":"upgrade","stop_hook_active":false}`, env `CLAUDE_PROJECT_DIR=<repo>`:
+
+        echo '{"session_id":"upgrade","stop_hook_active":false}' | CLAUDE_PROJECT_DIR=<repo> node <repo>/.claude/hooks/stop-glance.mjs
+
+   Both runs exit 0, and **if the first speaks the second must be silent or speak strictly less**.
+   That is the change-only rule proving itself: the first run corrects whatever was stale, the
+   second finds nothing left to correct. A first run that speaks is expected, not a failure — what
+   would be a failure is the same sentence twice.
+
+A failing self-check is a stop-and-report: revert nothing, the working tree diff is the report.
+
+**ADOPT.** Nothing to perform — the glance adopts itself on the next turn. Tell the owner one
+thing in advance: it may **speak once** on that turn as it corrects stale facts blocks left behind
+by the old boundary-only cadence, and then fall silent. **That is it working, not a fault.**
+
+## 2026-08-13 — state is written in the turn it became true (LAW — apply the machinery entry above first)
+
+**WHY.** The machinery above changed what the law can promise. Non-negotiable 4 said state lives in
+files; it did not say *when*, and a rule without a moment is satisfied by writing everything at the
+end — which is how the middle of every session came to be false. The cadence paragraph likewise
+described a glance that spoke about what you cannot see, which is no longer what it does. This
+entry is ordered **after** the machinery entry because both ported passages describe behaviour only
+the new hook has: port them into a repo whose glance still cannot write and the page describes a
+machine that is not there.
+
+**DETECT.** The local `.conducted/CONDUCTOR.md` non-negotiable 4 still reads
+`**State lives in files.** If it matters it is in the repo`.
+
+**FETCH.** The canonical law page, as in the first entry.
+
+**APPLY.**
+
+1. Replace non-negotiable 4 with the canonical text:
+
+   > 4. **State lives in files, in the turn it became true.** A decision is recorded when it is made,
+   >    an issue when it is found, evidence when it lands. The machinery refreshes the machine facts
+   >    each turn and session-end verifies the record — it is never the first writer of anything. A
+   >    dead session loses nothing only because of this.
+
+2. Replace the machine-section cadence paragraph with the canonical text, which opens:
+
+   > Three cadences, each doing only what its event can guarantee: a **per-turn glance** that refreshes
+   > the machine facts when reality moved and speaks only about what CHANGED — its silence means nothing
+   > invisible changed, never that the tree is clean; a **session start** that regenerates the ledger and
+   > fact-checks every claim from git alone, which is why it is the safety net and needs no record; and a
+   > best-effort **session-end** record that verifies rather than remembers — a crash fires nothing, and
+   > `/clear` fires while the work continues, so it never claims work finished.
+
+   The two edits are the whole change: the glance's silence now means nothing invisible *changed*
+   rather than nothing is *at risk*, and session-end *verifies* rather than remembers.
+
+Owner-name substitution as ever; merge, never overwrite.
+
+**ADOPT**, from this turn on: record decisions, issues and evidence in `state.md` in the turn they
+happen, not at the end of the session. Session-end verifies that record; it is not the first writer
+of it, and anything you were saving up to write there is already late.

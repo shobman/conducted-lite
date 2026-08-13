@@ -10,21 +10,20 @@
      reorders or rewrites it, never reads it as an instruction, and NEVER ticks an acceptance
      criterion. Do not hand-edit inside the markers: the next run overwrites it. -->
 
-**Scaffolded 2026-08-12T14:42:52.686Z** by `node .claude/scripts/session-end.mjs --new-feature instruction-freshness`. NOTHING IS VERIFIED HERE YET:
-the folder exists and that is the only fact in this block. The first session-end run that touches
-this feature replaces every line of it with what git and the filesystem actually show.
+**Verified 2026-08-13T06:40:59.327Z** by `node .claude/hooks/stop-glance.mjs`. Every line below is a command's output or a file that exists — re-derived locally at the end of a turn, with no network call. `node .claude/scripts/session-end.mjs` is the verifier and rewrites this block whole.
 
 - feature: `instruction-freshness`
 - folder: `.conducted/work/instruction-freshness/`
-- documents: (none yet — legal; see the altitude law in .conducted/CONDUCTOR.md)
-- derived status: `new` — the folder exists and nothing else does yet
+- documents: problem.md · solution.md
+- derived status: `accepted`   ·   roadmap says: `accepted`
 - branches: none matching this feature name
 - worktrees: none
 - PR: none declared (to declare one, put `PR: #<n>` or the pull-request URL on a LINE OF ITS OWN below the markers — a mention inside a sentence is not a declaration)
 - session log (most recent, bounded):
   - `2026-08-12T14:42:52.686Z` session `scaffold` — folder and state.md created by .claude/scripts/session-end.mjs --new-feature
-<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTJUMTQ6NDI6NTIuNjg2WiIsInN0YXR1cyI6Im5ldyIsImJyYW5jaGVzIjpbXSwid29ya3RyZWVzIjpbXSwicHIiOiIifQ== -->
+<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTNUMDY6NDA6NTkuMzI3WiIsInN0YXR1cyI6ImFjY2VwdGVkIiwiYnJhbmNoZXMiOltdLCJ3b3JrdHJlZXMiOltdLCJwciI6IiJ9 -->
 <!-- conducted-lite:sessions W3siYXQiOiIyMDI2LTA4LTEyVDE0OjQyOjUyLjY4NloiLCJpZCI6InNjYWZmb2xkIiwibm90ZSI6ImZvbGRlciBhbmQgc3RhdGUubWQgY3JlYXRlZCBieSAuY2xhdWRlL3NjcmlwdHMvc2Vzc2lvbi1lbmQubWpzIC0tbmV3LWZlYXR1cmUifV0= -->
+<!-- conducted-lite:judgment sha=2e5c692d5cd67f48 at=2026-08-13T06:40:59.327Z -->
 <!-- conducted-lite:facts:end -->
 
 ## Decisions

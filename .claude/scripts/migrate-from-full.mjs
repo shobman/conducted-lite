@@ -193,6 +193,11 @@ const INSTALL = [
   '.conducted/example.md',
   '.conducted/work/README.md',
   '.claude/scripts/lite-rules.mjs',
+  // lite-derive.mjs is NOT optional and NOT new-in-name-only: the per-turn Stop glance imports it
+  // directly (it holds every derivation the glance and the scripts must agree on byte-for-byte), so
+  // a repo migrated without it gets a hook that silently exits 0 on every turn — the failure mode
+  // that looks exactly like "nothing to report". Added 2026-08-13 with the file.
+  '.claude/scripts/lite-derive.mjs',
   '.claude/scripts/lite-core.mjs',
   '.claude/scripts/session-start.mjs',
   '.claude/scripts/session-end.mjs',

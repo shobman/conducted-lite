@@ -38,7 +38,7 @@ import {
   fail, posix, gitq, gitRaw, gitOut, gitOk, refExists, parseArgs, rejectUnknownFlags, checkouts,
   readSplit, writeSplit, writeAtomic, rescaffoldSplit, scanContext, listFeatures, featureFacts, readFactsCarrier, prDeclaration,
   declaredStatuses, inFlightState, globToRe, sanitize, b64, unb64, judgmentHash, quoted, missing, onlyBadJson, outOfConvention,
-  newFeatureState, NAME_RE, mkdirSync, collapsedMachineDir,
+  newFeatureState, renderFactsBody, declaredLabel, toBinary, bytesOf, NAME_RE, mkdirSync, collapsedMachineDir,
   WINDOW_H, WINDOW_MS, SESSION_LOG_KEEP,
   CONDUCTED, WORK_REL, ROADMAP_REL, ARCHIVE_REL, CONDUCTOR_REL, END_REL, START_REL, ALLOW_REL,
   FACTS_START, FACTS_END, LEDGER_START, LEDGER_END, STATE_HUMAN_SCAFFOLD, stateHead,
@@ -51,19 +51,34 @@ import {
 // the one thing that has no per-feature home: the record of a dirty stop.
 const LAST_REL = `${CONDUCTED}/last-session.md`;
 
-const HELP = `conducted-lite session-end — RUN the guard-rail checks, then write what was verified.
-Nothing here is asserted; every line is a command's real output. It writes exactly two things —
-each touched feature's state.md and ${LAST_REL} — and NEVER the roadmap. See WHAT IT
-NEVER WRITES below.
+const HELP = `conducted-lite session-end — THE VERIFIER. It RUNS the guard-rail checks, CONFIRMS what
+is already true, and writes the record. Nothing here is asserted; every line is a command's real
+output. It writes exactly two things — each touched feature's state.md and ${LAST_REL} —
+and NEVER the roadmap. See WHAT IT NEVER WRITES below.
 
   node ${END_REL} [--allow-dirty "<globs>"] [--effort "<note>"] [--rescaffold]
   node ${END_REL} --abandon --reason "<why>" [--session-id <id>]
 
+IT IS NO LONGER THE FIRST WRITER OF A FACT, AND THAT CHANGES WHAT IT IS FOR (2026-08-13). Until now
+a feature's facts block and the roadmap's rows became true only at a session BOUNDARY — which is to
+say they were false for the whole middle of every session, and the field reported that three times
+in one sitting. The per-turn glance (.claude/hooks/stop-glance.mjs) now RE-DERIVES the ledger rows
+and each feature's facts block at the end of every turn and rewrites only the ones whose derived
+content actually differs. So by the time this script runs, state should ALREADY BE TRUE.
+  THIS SCRIPT'S JOB IS TO PROVE IT, and to add the two things a per-turn hook must not: the ONE real
+'git ls-remote' against origin, and the written record of how the session ended. Where it finds a
+fact that is not current it still rewrites it — being the backstop is part of being the verifier, and
+the glance is best-effort like everything else here — but that is now the exception and not the
+mechanism. Nothing downstream may assume this run happened.
+  NOTHING HERE IS WEAKER FOR IT. Every check below runs exactly as it did, on the same evidence, and
+every guarantee under WHAT IT NEVER WRITES is unchanged.
+
 WHEN IT RUNS. By hand, which is the deliberate wrap-up and the path that means something; and once
 from the SessionEnd hook when the context terminates, with --end-reason. NOT from Stop: Stop fires
-once per TURN, and this run costs a network round trip and rewrites files, so it was making the
-guard rail a per-turn tax and a permanent source of dirt in the tree it audits. The per-turn hook is
-now .claude/hooks/stop-glance.mjs, which is local, silent when clean, and cannot block.
+once per TURN, and this run costs a NETWORK ROUND TRIP, which is the thing a per-turn event can never
+afford. The per-turn hook is .claude/hooks/stop-glance.mjs: local only, no network call of any kind,
+silent unless a fact CHANGED, and it cannot block. It writes only when derived content differs from
+the bytes on disk, so it is not a per-turn source of dirt the way the original Stop wiring was.
 NOTHING IN THIS REPO BLOCKS A SESSION ANY MORE. The SessionEnd hook is notification-only by the
 harness's own definition, and it is BEST-EFFORT besides: a closed terminal, a crash or a kill fires
 nothing. The real safety net is 'node ${START_REL}', which derives everything it
@@ -145,6 +160,11 @@ CHECKS — FOUR, and these are all of them. Each is printed with the command tha
                           Freshness is a content hash recorded in the facts block, NOT the file's
                           mtime — same reason, one level down. Untouched features are not checked and
                           not rewritten.
+                          THE GLANCE RECORDS THE SAME HASH, by the same function, which is why this
+                          check is unaffected by it: the hash is of YOUR region, and no machine in
+                          this repo writes there. The dating is if anything more honest than it was —
+                          the timestamp beside the hash is now when your region ACTUALLY changed
+                          rather than when this script first noticed.
 
 THEN IT WRITES — two kinds of file and no others. EVERY WRITE IS ATOMIC: temp file, then rename, so
 a kill mid-write leaves the whole old file or the whole new one and never half of either. That
@@ -159,7 +179,15 @@ any two bytes.
   and never touches it, never reorders it, never reads it as an instruction, and NEVER ticks an
   acceptance criterion. The session log inside the block is bounded to the last ${SESSION_LOG_KEEP}
   entries, so a log inside a rewritten block cannot grow without limit.
+  THE PER-TURN GLANCE REFRESHES THIS SAME BLOCK, through the SAME renderer (renderFactsBody in
+  lite-derive.mjs), with the same markers and the same shape — so nothing it wrote is foreign here and
+  this run sees a block it could have written itself. The one line that differs is the provenance
+  line, which names whichever of the two last had a reason to write, and it is held constant by the
+  comparison so neither program rewrites the other's block for the sake of a name. The glance never
+  adds a session-log entry: a turn is not a session.
   ${LAST_REL}   wholly machine-written, rewritten whole. No human region, so nothing to protect.
+                          NOTHING ELSE WRITES THIS FILE. The glance does not, and must not: how a
+                          session ended is not a per-turn fact.
   state.md missing        -> created from the template, facts filled, human sections left with their
                              guidance comments (and check 4 reports the finding).
   markers missing         -> E_LITE_NO_MARKERS naming the file. It is NOT modified. Silently
@@ -172,8 +200,13 @@ WHAT IT NEVER WRITES — the guarantee to check before you run this at close-out
                           that is the whole of its relationship with the file. Hand-written rows,
                           ideas and anything else you put there cannot be clobbered by running this.
                           Regenerating the ledger belongs to 'node ${START_REL}'
-                          and to nothing else.
-  ${ARCHIVE_REL}   NEVER, for the same reason. Sweeping is also session-start's.
+                          and, since 2026-08-13, to the per-turn glance — which regenerates the SAME
+                          generated rows, through the same placement ratchet, and writes only when
+                          they differ. Neither of those is this script, and this script still never
+                          touches the file. (That sentence used to end "and to nothing else"; the
+                          glance made it false, so it is rewritten rather than left standing.)
+  ${ARCHIVE_REL}   NEVER, for the same reason. Sweeping is also session-start's, and the
+                          glance never sweeps either — a sweep is a tidy with a human trigger.
   your human regions      NEVER. Outside the facts markers is yours, spliced around by byte index.
                           NO SCRIPT IN THIS REPO TICKS AN ACCEPTANCE CRITERION, including this one,
                           and none unticks one either.
@@ -218,6 +251,21 @@ FLAGS:
                            else would be a second copy of that shape waiting to drift.
   --help                   this text.
 
+NOT CHECKED BY ANYTHING HERE — the six lines every run prints under that heading, and what each one
+means. They are printed as bare items because a reminder that argues with you is one people skip;
+the reasoning is here, once. (Runtime output was cut to facts by owner ruling, 2026-08-13.)
+  state.md's human region changed, and that is ALL the freshness check knows. Whether what it says
+    is TRUE is not a machine question and this script does not pretend otherwise.
+  what a cold successor cannot re-derive: judgment calls, near-misses, warnings, half-formed
+    suspicions. "Nothing to record" is a legal answer ONLY after a real attempt at that list.
+  acceptance criteria are counted and never ticked. No script in this repo ticks one, and none
+    unticks one either.
+  a stale '## Issues' entry is worse than no note at all — the next reader believes it.
+  stray processes: kill by PID, never by pattern. This script will not guess which PIDs were this
+    session's, and a pattern kill in a repo with parallel builders takes out the wrong one.
+  the --effort figure is an estimate the conductor passed in. Information, never a budget, and
+    nothing verified it.
+
 EXIT: 0 with the assurance block (every check VERIFIED, output quoted). 1 with the UNMANAGED list —
 each finding, why, and the exact command that fixes it. NEITHER EXIT BLOCKS ANYTHING. On the
 SessionEnd path the exit code is ignored by the harness itself; the findings live in
@@ -247,11 +295,21 @@ HONEST LIMITS — said plainly rather than implied away:
   · Check 4 is silent when this session touched no feature folder at all. That is deliberate — see
     the note it prints — but it means a session spent entirely outside ${WORK_REL}/ leaves no
     written trace, and nothing mechanical can tell you whether it should have.
-  · THE ROADMAP IS REGENERATED ONLY AT SESSION START, and check 1's in-flight allowance is keyed to
-    a row under '## development'. A feature created MID-SESSION has no row yet, so a live builder's
-    worktree reads here as work nobody declared, and check 1 fails on it though nothing is wrong.
-    That is a stale ledger, not a finding: 'node ${START_REL}' regenerates it — it
-    is safe to run at any time — and then re-run this.
+  · THE ROADMAP IS NO LONGER REGENERATED ONLY AT SESSION START (rewritten 2026-08-13; the sentence
+    that stood here said it was). Check 1's in-flight allowance is keyed to a row under
+    '## development', so a feature created mid-session used to read here as work nobody declared and
+    fail check 1 though nothing was wrong. The per-turn glance now regenerates the rows at the end of
+    every turn, so an ordinary mid-session feature has its row before this ever runs. WHAT IS STILL
+    TRUE: the glance is best-effort like everything else — if it did not run, or could not write, the
+    ledger is stale and check 1 fails on a live builder for that reason. That is a stale ledger and
+    not a finding: 'node ${START_REL}' regenerates it, it is safe to run at any
+    time, and then re-run this.
+  · A FEATURE FOLDER THAT IS ONLY ON ITS BRANCH IS STILL NOT DECLARED. A feature committed on its
+    branch and not yet merged has no row on main's roadmap and cannot have one until it lands, so
+    check 1 still fails on that worktree's dirt — correctly, because the declaration genuinely is not
+    on main. The glance names that state honestly ("declared on its branch, not yet on main") rather
+    than calling the worktree an orphan, which is what it used to do while quoting a file from inside
+    the very folder it said did not exist.
   · The '--effort' figure is recorded verbatim and never verified.`;
 
 // ---------------------------------------------------------------------------- args
@@ -422,16 +480,19 @@ for (const f of features) {
     // The block lands AFTER a leading '# ' title where the file has one — every other state.md in a
     // repo opens with its title, and the field's rescaffold left the document opening with a machine
     // block and the title stranded below it. One rule, in lite-core, shared with session-start.
-    if (f.touched && flags.rescaffold) { const r = rescaffoldSplit(split.text); f.split = { exists: true, markers: true, text: split.text, head: r.head, body: '', tail: r.tail }; }
+    if (f.touched && flags.rescaffold) { const r = rescaffoldSplit(split.raw); f.split = { exists: true, markers: true, raw: split.raw, text: split.text, head: r.head, body: '', bodyBin: '', tail: r.tail }; }
     else if (f.touched) {
-      fail('E_LITE_NO_MARKERS',
-        `${posix(sp)} exists but carries no facts markers, so this script cannot tell which region it owns — and it will not guess. NOTHING WAS WRITTEN.\n` +
-        `  Add these two lines where the machine facts should live (the script owns everything between them, and rewrites it every run):\n` +
-        `    ${FACTS_START}\n    ${FACTS_END}\n` +
-        `  or have them inserted above your existing content:  node ${END_REL} --rescaffold`);
+      // `blocked` is the UNCLOSED-FENCE case and it gets its own sentence, because "add the markers"
+      // is the wrong instruction for a file whose markers are already there and merely unreadable.
+      fail('E_LITE_NO_MARKERS', split.blocked
+        ? `${posix(sp)}: ${split.blocked} NOTHING WAS WRITTEN, and nothing outside the markers was touched.`
+        : `${posix(sp)} exists but carries no facts markers, so this script cannot tell which region it owns — and it will not guess. NOTHING WAS WRITTEN.\n` +
+          `  Add these two lines where the machine facts should live (the script owns everything between them, and rewrites it every run):\n` +
+          `    ${FACTS_START}\n    ${FACTS_END}\n` +
+          `  or have them inserted above your existing content:  node ${END_REL} --rescaffold`);
     }
   }
-  if (!f.split.exists) f.split = { exists: false, markers: true, head: stateHead(f.name), body: '', tail: STATE_HUMAN_SCAFFOLD };
+  if (!f.split.exists) f.split = { exists: false, markers: true, raw: Buffer.alloc(0), head: bytesOf(stateHead(f.name)), body: '', bodyBin: '', tail: bytesOf(STATE_HUMAN_SCAFFOLD) };
   f.humanText = f.split.head + f.split.tail;
   f.prev = readFactsCarrier(f.split.body || '');
   // The declaration AND its source line: what goes into the facts block is quoted beside the number,
@@ -554,10 +615,10 @@ function checkPorcelain() {
       const hits = allow.filter((a) => a.re.test(path));
       for (const h of hits) h.used = true;
       const mw = idx === 0 ? (machineWritten.get(path) || collapsedFeatureDir(path)) : null;
-      if (mw) { res.accounted.push(`${co.label}: ${xy} ${path}  (${mw} — implicitly accounted for, never hidden. Commit it: git add ${path} && git commit -m "conducted: state")`); continue; }
+      if (mw) { res.accounted.push(`${co.label}: ${xy} ${path}  (${mw}) — git add ${path} && git commit -m "conducted: state"`); continue; }
       if (flight) {
         flying.push(path);
-        res.accounted.push(`${co.label}: ${xy} ${path}  (accounted for by in-flight feature '${flight.name}' — ${ROADMAP_REL} declares it under '## development' and ${WORK_REL}/${flight.name}/ exists)`);
+        res.accounted.push(`${co.label}: ${xy} ${path}  (in-flight '${flight.name}': declared under '## development', ${WORK_REL}/${flight.name}/ exists)`);
         continue;
       }
       if (hits.length) { res.accounted.push(`${co.label}: ${xy} ${path}  (accounted for by ${hits[0].src} '${hits[0].g}')`); continue; }
@@ -565,20 +626,19 @@ function checkPorcelain() {
     }
     if (flying.length) {
       res.machineOnly.push(
-        `feature '${flight.name}' — ${flying.length} uncommitted file(s) in ${co.path}. They exist ON THIS MACHINE ONLY: ` +
-        `no commit holds them, so no push can, and if this clone dies they are gone. Expected while a builder is live, and ` +
-        `NOT a pass — a named fact. When it lands: cd ${co.path} && git add -A && git commit && git push`);
+        `feature '${flight.name}': ${flying.length} uncommitted file(s) in ${co.path}, on this machine only. ` +
+        `cd ${co.path} && git add -A && git commit && git push`);
     }
     if (dirty.length) {
       res.ok = false;
       res.dirty.push(...dirty);
       const why = idx === 0
-        ? 'the MAIN checkout is never in flight — work left here is stranded whatever the worktrees are doing'
+        ? 'the MAIN checkout is never in flight'
         : (notInFlight.get(co.path) || 'this worktree is not a declared in-flight feature');
-      for (const d of dirty) res.why.push(`${co.label}: ${d.xy} ${d.path} — uncommitted and unaccounted for (${why})`);
+      for (const d of dirty) res.why.push(`${co.label}: ${d.xy} ${d.path} — uncommitted, unaccounted for (${why})`);
       res.fix.push(`cd ${co.path} && git add -A && git commit   (or git stash; or account for it: --allow-dirty "<glob>", or a line in ${ALLOW_REL}${idx === 0 ? '' : `; or, if a builder is live there, give '${co.name}' a ${WORK_REL}/${co.name}/ folder and a row under '## development' in ${ROADMAP_REL}`})`);
       if (idx === 0 && dirty.some((d) => d.path === ALLOW_REL)) {
-        res.fix.push(`${ALLOW_REL} is itself uncommitted — it is TRACKED by design, so the allowance shows up in review and can never be set invisibly: git add ${ALLOW_REL} && git commit -m "conducted: declare what is in flight"`);
+        res.fix.push(`${ALLOW_REL} is itself uncommitted (it is tracked by design): git add ${ALLOW_REL} && git commit -m "conducted: declare what is in flight"`);
       }
     }
   }
@@ -586,10 +646,10 @@ function checkPorcelain() {
   // REPORTED, so a line left behind after its builder landed cannot sit there quietly weakening this
   // check. It does not FAIL: a declaration that has outlived its use is untidiness, not stranding,
   // and a check that fails on untidiness is a check people learn to ignore.
-  for (const a of allow) if (!a.used) res.stale.push(`${a.src} '${a.g}' matched NOTHING in any checkout — it accounts for nothing today and will silently weaken this check the day it does. Delete it${a.src === ALLOW_REL ? `: edit ${ALLOW_REL}` : ''}.`);
-  if (res.accounted.length) res.note = ['explicitly accounted for (NAMED, not suppressed):', ...res.accounted];
-  if (res.machineOnly.length) res.note = [...(res.note || []), 'IN FLIGHT — ON THIS MACHINE ONLY. Named, never counted as durable:', ...res.machineOnly];
-  if (res.stale.length) res.note = [...(res.note || []), 'STALE DECLARATIONS — matched nothing, reported so they cannot rot into a silent hole:', ...res.stale];
+  for (const a of allow) if (!a.used) res.stale.push(`${a.src} '${a.g}' matched nothing in any checkout. Delete it${a.src === ALLOW_REL ? `: edit ${ALLOW_REL}` : ''}.`);
+  if (res.accounted.length) res.note = ['accounted for:', ...res.accounted];
+  if (res.machineOnly.length) res.note = [...(res.note || []), 'in flight, on this machine only:', ...res.machineOnly];
+  if (res.stale.length) res.note = [...(res.note || []), 'stale declarations:', ...res.stale];
   return res;
 }
 
@@ -604,7 +664,7 @@ function checkPushed() {
   const locals = ctx.locals;
   if (!gitq(['remote'], MAIN)) {
     res.ok = false;
-    res.why.push(`this clone has NO 'origin' remote, so nothing local can be durable — ${locals.length} local branch(es) exist only here.`);
+    res.why.push(`no 'origin' remote in this clone; ${locals.length} local branch(es) exist only here.`);
     res.fix.push('git remote add origin <url> && git push -u origin <branch>');
     return res;
   }
@@ -612,7 +672,7 @@ function checkPushed() {
   if (!ls.ok) {
     res.ok = false;
     res.outputs.push({ where: 'git ls-remote --heads origin', text: ls.err });
-    res.why.push(`'git ls-remote --heads origin' FAILED, so "everything is pushed" cannot be verified — and an unverifiable claim is exactly what this script refuses to print.`);
+    res.why.push(`'git ls-remote --heads origin' FAILED, so "everything is pushed" cannot be verified.`);
     res.fix.push(`fix the remote/auth, then re-run: node ${END_REL}`);
     return res;
   }
@@ -632,7 +692,7 @@ function checkPushed() {
     if (!rsha) { res.stragglers.push({ name: b.name, why: 'ABSENT from origin — this branch exists only in this clone' }); continue; }
     if (rsha === b.sha) continue;
     if (!refExists(rsha)) {
-      res.unverified.push({ name: b.name, why: `origin is at ${rsha.slice(0, 8)}, which is NOT an object in this clone — origin has commits this clone has not fetched. Whether the local tip ${b.sha.slice(0, 8)} is contained in it is UNKNOWN: not verified pushed, and not shown to be local-only either.` });
+      res.unverified.push({ name: b.name, why: `origin is at ${rsha.slice(0, 8)}, not an object in this clone. Containment of local tip ${b.sha.slice(0, 8)} is UNKNOWN.` });
       continue;
     }
     if (!gitOk(['merge-base', '--is-ancestor', b.sha, rsha], MAIN)) {
@@ -649,7 +709,7 @@ function checkPushed() {
   if (res.unverified.length) {
     res.ok = false;
     for (const s of res.unverified) res.why.push(`branch '${s.name}' — CANNOT VERIFY against origin: ${s.why}`);
-    res.fix.push(`git fetch origin   (then re-run: node ${END_REL} — with origin's objects local, containment becomes checkable. Do NOT push to make this go away: if origin moved ahead, 'git push' is REJECTED non-fast-forward. This script will not fetch for you — a check that changes the repo to make itself pass is not a check.)`);
+    res.fix.push(`git fetch origin && node ${END_REL}   (do not push to clear this: if origin moved ahead the push is rejected non-fast-forward)`);
   }
   return res;
 }
@@ -671,8 +731,8 @@ function checkWorktrees() {
     if (w.layout !== 'in-repo') res.offConvention.push(outOfConvention(w, MAIN));
     if (featureNames.has(w.name)) continue;
     res.ok = false;
-    res.why.push(`worktree '${w.path}' has no feature folder — ${WORK_REL}/${w.name}/ does not exist, so nothing on the roadmap accounts for it.`);
-    res.fix.push(`mkdir -p ${WORK_REL}/${w.name}   (the roadmap row and the state.md follow from the folder), or remove it: git worktree remove ${w.path} && git worktree prune`);
+    res.why.push(`worktree '${w.path}' has no ${WORK_REL}/${w.name}/ folder, so nothing on the roadmap accounts for it.`);
+    res.fix.push(`mkdir -p ${WORK_REL}/${w.name}   or   git worktree remove ${w.path} && git worktree prune`);
   }
   // The reverse direction, and it is deliberately narrow: only a TOUCHED feature is checked. Nagging
   // about a feature nobody opened this session is exactly the noise the per-feature reshape removes.
@@ -680,15 +740,15 @@ function checkWorktrees() {
     for (const claim of f.prev.claimed.worktrees) {
       if (ctx.worktrees.some((w) => w.label === claim || w.path === claim)) continue;
       res.ok = false;
-      res.why.push(`${f.rel}/state.md records worktree '${claim}' (this feature was touched this session), but 'git worktree list' does not show it — either it was removed and the file still claims it, or it was never created.`);
-      res.fix.push(`re-run this script (it rewrites ${f.rel}/state.md's facts block from reality), or re-create it: git worktree add worktrees/${f.name} <branch>`);
+      res.why.push(`${f.rel}/state.md records worktree '${claim}' (touched this session) and 'git worktree list' does not show it.`);
+      res.fix.push(`node ${END_REL}   (rewrites the facts block from reality)   or   git worktree add worktrees/${f.name} <branch>`);
     }
   }
   res.outputs.push({
     where: `${WORK_REL}/ folders`,
     text: features.length ? features.map((f) => `${f.name}   ${f.touched ? 'TOUCHED this session' : 'untouched'}   derived: ${f.derived}`).join('\n') : '(no feature folders)',
   });
-  if (res.offConvention.length) res.note = ['OUT OF CONVENTION — reconciled, reported, not failed:', ...res.offConvention];
+  if (res.offConvention.length) res.note = ['out of convention (reconciled, not failed):', ...res.offConvention];
   return res;
 }
 
@@ -703,10 +763,7 @@ function checkFresh() {
   if (!touched.length) {
     res.outputs.push({
       where: `features touched this session (commit on its branch, commit under ${WORK_REL}/<name>/, or an uncommitted change there — ${WINDOW_H}h window; this script's own writes do not count)`,
-      text: `(none — nothing under ${WORK_REL}/ was touched this session, so there is nothing to be fresh)\n` +
-        `NOTE: this check is SILENT here, not satisfied. A session spent entirely outside ${WORK_REL}/ leaves no\n` +
-        `written trace, and nothing mechanical can tell you whether it should have. If this session was work on\n` +
-        `something, it belongs in a feature folder.`,
+      text: `(none — nothing under ${WORK_REL}/ was touched this session)\nSILENT, not satisfied: a session spent entirely outside ${WORK_REL}/ leaves no written trace.`,
     });
     return res;
   }
@@ -721,17 +778,17 @@ function checkFresh() {
     rows.push(`${f.name}\n  touched because: ${f.touchedWhy.join('; ')}\n  state.md ${f.split.exists ? 'exists' : 'DID NOT EXIST — created from the template by this run'}\n  human-region sha ${sha}${changed ? '   (CHANGED since the last run — fresh)' : '   (unchanged since the last run)'}\n  last change ${at}${Number.isFinite(t) ? `   (${(age / 3600000).toFixed(1)}h ago; window ${WINDOW_H}h)` : ''}`);
     if (!f.split.exists) {
       res.ok = false;
-      res.why.push(`'${f.name}' was touched this session but ${f.rel}/state.md did not exist — this session left nothing a cold successor could read about it. It has been CREATED from the template ('## Decisions' / '## Issues' / '## Acceptance criteria' left with their guidance comments); fill it in.`);
-      res.fix.push(`edit ${f.rel}/state.md, then re-run: node ${END_REL}`);
+      res.why.push(`'${f.name}' was touched this session and ${f.rel}/state.md did not exist. Created from the template; the human sections are empty.`);
+      res.fix.push(`edit ${f.rel}/state.md, then: node ${END_REL}`);
     } else if (age > WINDOW_MS) {
       res.ok = false;
-      res.why.push(`'${f.name}' was touched this session (${f.touchedWhy[0]}) but ${f.rel}/state.md's human region has not changed in ${Number.isFinite(t) ? (age / 3600000).toFixed(1) + 'h' : 'a knowable time'} (window ${WINDOW_H}h) — the facts block updates itself, but decisions, issues and acceptance criteria are this session's thinking and nothing else can write them.`);
-      res.fix.push(`edit ${f.rel}/state.md (outside the facts markers), then re-run: node ${END_REL}`);
+      res.why.push(`'${f.name}' was touched this session (${f.touchedWhy[0]}) and ${f.rel}/state.md's human region has not changed in ${Number.isFinite(t) ? (age / 3600000).toFixed(1) + 'h' : 'a knowable time'} (window ${WINDOW_H}h).`);
+      res.fix.push(`edit ${f.rel}/state.md outside the facts markers, then: node ${END_REL}`);
     }
   }
   const untouched = features.filter((f) => !f.touched);
   res.outputs.push({ where: `features TOUCHED this session (${touched.length} of ${features.length})`, text: rows.join('\n\n') });
-  if (untouched.length) res.outputs.push({ where: 'features NOT touched this session — not checked, not rewritten, not nagged about', text: untouched.map((f) => f.name).join('\n') });
+  if (untouched.length) res.outputs.push({ where: 'features NOT touched this session (not checked, not rewritten)', text: untouched.map((f) => f.name).join('\n') });
   return res;
 }
 
@@ -776,7 +833,9 @@ const commits = gitq(['log', '--max-count=3', '--oneline', '--no-decorate'], MAI
 // ---------------------------------------------------------------------------- write state.md (touched only)
 
 for (const f of touched) {
-  const declared = declaredStatus.get(f.name) || '(not on the roadmap yet)';
+  // ONE COPY of this string, shared with the per-turn glance — including the case the roadmap has no
+  // ledger markers, where the declared status is UNKNOWABLE and not absent. See declaredLabel.
+  const declared = declaredLabel(rmSplit.exists, rmSplit.markers, declaredStatus.get(f.name));
   const sessions = [
     { at: now, id: typeof flags['session-id'] === 'string' ? flags['session-id'].replace(/[^A-Za-z0-9._-]/g, '_') : '-', note: sanitize(f.touchedWhy.join('; ')) },
     ...f.prev.sessions,
@@ -790,33 +849,25 @@ for (const f of touched) {
     pr: f.pr,
   };
 
-  const body = [
-    '',
-    '<!-- MACHINE-WRITTEN. REWRITTEN IN PLACE on every session-end run that touches this feature —',
-    '     never appended to. Everything OUTSIDE the two markers is yours; the script never touches,',
-    '     reorders or rewrites it, never reads it as an instruction, and NEVER ticks an acceptance',
-    '     criterion. Do not hand-edit inside the markers: the next run overwrites it. -->',
-    '',
-    `**Verified ${now}** by \`node ${END_REL}\`. Every line below is a command's output or a file that exists.`,
-    '',
-    `- feature: \`${f.name}\``,
-    `- folder: \`${f.rel}/\``,
-    `- documents: ${[...f.docs, ...f.extra].join(' · ') || '(none — legal; see the altitude law in ' + CONDUCTOR_REL + ')'}`,
-    `- derived status: \`${f.derived}\`   ·   roadmap says: \`${declared}\``,
-    ...(f.branches.length ? ['- branches:', ...f.branches.map((b) => `  - \`${b.name}\` @ \`${b.sha.slice(0, 8)}\` (${b.where})`)] : ['- branches: none matching this feature name']),
-    ...(f.worktrees.length ? ['- worktrees:', ...f.worktrees.map((w) => `  - \`${w.label}\` -> ${w.path}`)] : ['- worktrees: none']),
-    f.pr
-      ? `- PR: #${f.pr} — DECLARED by the line "${sanitize(f.prDecl.line)}" in the human region below. Nothing in git knows about a PR; \`node ${START_REL}\` checks it with one \`gh pr list\` call and reports UNVERIFIED when gh is not there.`
-      : '- PR: none declared (to declare one, put `PR: #<n>` or the pull-request URL on a LINE OF ITS OWN below the markers — a mention inside a sentence is not a declaration)',
-    '- session log (most recent, bounded):',
-    ...sessions.map((s) => `  - \`${s.at}\` session \`${s.id}\` — ${s.note || 'touched'}`),
-    `<!-- conducted-lite:state ${b64(JSON.stringify(carrier))} -->`,
-    `<!-- conducted-lite:sessions ${b64(JSON.stringify(sessions))} -->`,
-    `<!-- conducted-lite:judgment sha=${f.freshSha} at=${f.freshAt} -->`,
-    '',
-  ].join('\n');
+  // THE SHAPE IS NO LONGER MINTED HERE, and the reason is worth the one line: the per-turn Stop
+  // glance now REFRESHES this same block mid-session, so that a feature's facts are true in the
+  // middle of a session and not only at its edges. Two renderers of one block would rewrite each
+  // other every turn, in the file whose human region this machinery most exists to protect. So the
+  // renderer is `renderFactsBody` in lite-derive.mjs and this call is the ONLY thing that changed:
+  // every byte it emits is the byte this script emitted before, with the volatile four —
+  // verifiedAt / verifiedBy / judgmentSha / judgmentAt — passed in rather than closed over.
+  const body = renderFactsBody({
+    name: f.name, rel: f.rel, docs: f.docs, extra: f.extra, derived: f.derived, declared,
+    branches: f.branches, worktrees: f.worktrees,
+    pr: f.pr, prLine: f.pr ? f.prDecl.line : '',
+    sessions, carrier,
+    verifiedAt: now, verifiedBy: END_REL,
+    judgmentSha: f.freshSha, judgmentAt: f.freshAt,
+  });
 
-  writeSplit(f.statePath, f.split, FACTS_START, FACTS_END, body);
+  // toBinary: the facts body is UTF-8 TEXT and writeSplit assembles BYTES, so that the human region
+  // it is spliced between can be carried through as the bytes it actually is. See lite-derive.
+  writeSplit(f.statePath, f.split, FACTS_START, FACTS_END, toBinary(body));
 }
 
 // ---------------------------------------------------------------------------- write last-session.md
@@ -899,52 +950,46 @@ writeAtomic(join(MAIN, LAST_REL), lastText);
 
 // The items no machine can honestly verify. PRINTED as named reminders, NEVER claimed as verified —
 // that split is the doctrine this script enforces, applied to the script itself.
+// NOT trimmed away, and not philosophy: each line is an item nothing here checked, which is the
+// whole reason it is printed. Trimmed to the item. The reasoning behind each lives in --help.
 const BEHAVIORAL = [
-  `is each touched feature's state.md HONEST? The script verified that the human region changed — never that what it says is true.`,
-  `did you record what a cold successor could NOT re-derive from repo state — judgment calls, near-misses, warnings, half-formed suspicions? "Nothing" is legal only after a real attempt.`,
-  `acceptance criteria are COUNTED and never ticked. If one is met, tick it yourself; nothing here will, and nothing here will untick one either.`,
-  `is anything still under '## Issues' actually gone? A stale issue is worse than no note at all.`,
-  `no stray processes — kill by PID, never by pattern. This script will not guess which PIDs were this session's.`,
-  `the effort figure (if any) is an ESTIMATE you passed in with --effort. It is information, never a budget, and nothing here verified it.`,
+  `state.md's human region changed — whether what it says is TRUE was not checked.`,
+  `what a cold successor cannot re-derive from the repo: judgment calls, near-misses, warnings.`,
+  `acceptance criteria are counted, never ticked. Tick them yourself.`,
+  `anything under '## Issues' that is actually gone.`,
+  `stray processes — kill by PID, never by pattern.`,
+  `the --effort figure is an estimate you passed in; nothing here verified it.`,
 ];
 
 const wrote = [LAST_REL, ...touched.map((f) => `${f.rel}/state.md`)];
 
 if (flags.abandon) {
   process.stdout.write(
-    `SESSION ABANDONED — recorded, not hidden @ ${now}\n` +
+    `SESSION ABANDONED — recorded @ ${now}\n` +
     `  reason      ${sanitize(flags.reason)}\n` +
-    `  session     ${abandon.session === '-' ? '(not given — pass --session-id to key this record to this session)' : abandon.session}\n` +
+    `  session     ${abandon.session === '-' ? '(not given — pass --session-id)' : abandon.session}\n` +
     `  artifact    ${LAST_REL}\n` +
-    `  unmanaged   ${abandon.failed.length ? abandon.failed.join(' · ') : "(nothing mechanical — every check passed; recorded anyway on the session's own judgment)"}\n` +
+    `  unmanaged   ${abandon.failed.length ? abandon.failed.join(' · ') : '(no check failed; recorded on judgment)'}\n` +
     (failed.length ? failed.map((i) => [`  · ${i.n} ${i.name}`, ...i.why.map((w) => `      why: ${w}`), ...i.fix.map((f) => `      fix: ${f}`)].join('\n')).join('\n') + '\n' : '') +
-    `  NOTE        this record releases nothing — nothing in this repo blocks a session. Its whole value\n` +
-    `              is that the next session and the human READ it: 'node ${START_REL}' says\n` +
-    `              plainly what git shows, whether or not this record is there.\n` +
-    `  STILL YOURS — not discharged by this record:\n` +
+    `  NOT CHECKED BY ANYTHING HERE:\n` +
     BEHAVIORAL.map((b) => `      · ${b}`).join('\n') + '\n' +
-    `  next        commit and push ${wrote.join(', ')} — a record only this clone can see is the same failure one level up.\n`,
+    `  next        git add ${wrote.join(' ')} && git commit -m "conducted: state" && git push\n`,
   );
   process.exit(0);
 }
 
 if (!failed.length) {
   process.stdout.write(
-    `STATE FULLY MANAGED — ${posix(MAIN)} @ ${now}\n` +
-    `(every line below is a command's OUTPUT, quoted; nothing here is asserted.)\n\n` +
+    `STATE FULLY MANAGED — ${posix(MAIN)} @ ${now}\n\n` +
     items.map((i) => [`  ${i.n}  ${i.name}  — VERIFIED`, ...quoted(i.outputs), ...(i.note ? i.note.map((l) => `      ${l}`) : [])].join('\n')).join('\n\n') +
-    `\n\n  written, facts blocks REWRITTEN in place (not appended); no human region was touched:\n` +
+    `\n\n  written:\n` +
     wrote.map((w) => `    ${w}`).join('\n') +
-    `\n\nNOT MACHINE-VERIFIABLE — printed as a reminder, NOT claimed as verified:\n` +
-    BEHAVIORAL.map((b) => `  · ${b}`).join('\n') +
-    `\n\nWHAT'S NEXT FOR THE HUMAN:\n` +
-    // "nothing is waiting" is itself a claim, and it is ALWAYS false at the moment this prints: this
-    // run rewrote the files above seconds ago (the Verified timestamp alone changes bytes), so the
+    `\n\n  NOT CHECKED BY ANYTHING HERE:\n` +
+    BEHAVIORAL.map((b) => `    · ${b}`).join('\n') +
+    // The files above were rewritten seconds ago (the Verified timestamp alone changes bytes), so the
     // state a successor reads exists only in this clone until it is committed. Unconditional by
-    // design — there is nothing to detect, because the write always happened.
-    `  commit this run's write first — the files above were just rewritten, so the state a successor reads exists only in this clone:\n` +
-    `    git add ${wrote.join(' ')} && git commit -m "conducted: state" && git push\n` +
-    `  then close this tab — nothing else in this repo is waiting on this session.\n`,
+    // design: there is nothing to detect, because the write always happened.
+    `\n\n  git add ${wrote.join(' ')} && git commit -m "conducted: state" && git push\n`,
   );
   process.exit(0);
 }
@@ -963,25 +1008,16 @@ process.stdout.write(
   // conductor most needs to see what was silently allowed; dropping the notes on failure would hide
   // them at the only moment they matter.
   (items.some((i) => i.note)
-    ? `\n\n  NAMED, whatever the verdict above:\n` +
+    ? `\n\n  NAMED:\n` +
       items.filter((i) => i.note).map((i) => [`    ${i.n} ${i.name}:`, ...i.note.map((l) => `      ${l}`)].join('\n')).join('\n')
     : '') +
   `\n\n  passed: ${items.filter((i) => i.ok).map((i) => `${i.n} ${i.name}`).join(' · ') || '(none)'}\n` +
-  `  the facts blocks were rewritten anyway — they now RECORD the unmanaged state above, so the finding is in the files and not only in this terminal:\n` +
+  `  written anyway, recording the state above:\n` +
   wrote.map((w) => `    ${w}`).join('\n') +
-  `\n\nNOT MACHINE-VERIFIABLE (still yours, whatever you do about the above):\n` +
-  BEHAVIORAL.map((b) => `  · ${b}`).join('\n') +
-  `\n\nTWO WAYS TO LEAVE THIS HONESTLY — and NOTHING IS STOPPING YOU EITHER WAY. No hook in this repo\n` +
-  `blocks a session; this exit code is not a gate, it is a verdict you are being handed:\n` +
-  `  1  fix each item above (its exact command is printed with it), then re-run:\n` +
-  `       node ${END_REL}\n` +
-  `  2  record the stop honestly, which is the point of the escape hatch — a dirty stop with a\n` +
-  `     written reason is a handoff; a dirty stop without one is the failure:\n` +
-  `       node ${END_REL} --abandon --reason "<why>"\n` +
-  `     which writes what was left unmanaged into ${LAST_REL}.\n` +
-  `Walking away is a third thing you can do, and nothing will stop that either. What is guaranteed is\n` +
-  `that the next session is TOLD: 'node ${START_REL}' derives all of this from git and\n` +
-  `needs no record to do it.\n`,
+  `\n\n  NOT CHECKED BY ANYTHING HERE:\n` +
+  BEHAVIORAL.map((b) => `    · ${b}`).join('\n') +
+  `\n\n  fix each item above, then:  node ${END_REL}\n` +
+  `  or record the stop:         node ${END_REL} --abandon --reason "<why>"\n`,
 );
 process.stderr.write(`E_SESSION_UNMANAGED: ${failed.length} check(s) failed — the UNMANAGED list is on stdout.\n`);
 process.exit(1);
