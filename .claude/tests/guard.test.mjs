@@ -12,7 +12,7 @@
 // cwd with no .conducted/CONDUCTOR.md above it are all observable only from outside the process.
 //
 // EXIT CODE IS NON-ZERO WHILE ANY COUNTED CASE FAILS. Group A is expected to fail today — those are
-// the six defects in .conducted/work/guard-false-positives/state.md, written as assertions of what
+// the defects in .conducted/work/guard-false-positives/state.md, written as assertions of what
 // the guard SHOULD do, so each one turns green when its defect is fixed and no assertion is edited.
 // Group B passes today and a group-B failure is a regression or a new finding.
 //

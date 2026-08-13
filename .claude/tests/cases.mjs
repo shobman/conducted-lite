@@ -308,7 +308,7 @@ export const cases = [
     id: 'B-cwd-subdir-relative-owned',
     group: 'B',
     what: 'the same, resolving into the allow-set',
-    payload: write('state.md', { cwd: join(REPO_ROOT, '.conducted', 'work', 'guard-false-positives').replace(/\\/g, '/') }),
+    payload: write('state.md', { cwd: join(REPO_ROOT, '.conducted').replace(/\\/g, '/') }),
     expect: { decision: 'allow' },
   },
   {
