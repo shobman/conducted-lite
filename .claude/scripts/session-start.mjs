@@ -21,7 +21,7 @@
 // treat a merged PR as an ending. When the evidence outruns its authority it says so in a sentence
 // and stops: "this reads as complete; the roadmap says development." The human moves it or does not.
 //
-// Two things it is allowed to TIDY, and the line between them and everything else is drawn at
+// Three things it is allowed to TIDY, and the line between them and everything else is drawn at
 // REVERSIBILITY plus a HUMAN TRIGGER:
 //   1  sweep `## complete` into archive.md — the human already made the call by moving the row; the
 //      sweep is bookkeeping after the fact, and archive.md keeps every byte.
@@ -29,8 +29,13 @@
 //      checkout is completely clean — every byte of it is in origin, so nothing can be lost. When
 //      containment cannot be VERIFIED (origin's objects are not in this clone), it reports and does
 //      nothing: an unfetched clone must never be read as "merged".
-// Everything else is reported. Deleting a branch, moving anything toward `complete`, writing a
-// document, ticking a box: all judgement, none of it here.
+//   3  delete a LOCAL branch provably contained in origin's default branch — OWNER RULING,
+//      2026-08-13: "the branch itself should be clean up - the remote branch dies on merge, the
+//      local one needs to die too." The SAME containment proof as 2, made by the same function, so
+//      the two can never drift apart. Never the branch checked out anywhere, never the default
+//      branch, and never on an unverified answer.
+// Everything else is reported. Moving anything toward `complete`, writing a document, ticking a
+// box: all judgement, none of it here.
 //
 // See lite-core.mjs for the properties every file in this machinery inherits (argv-only children,
 // byte-splice ownership of human regions, content-hash freshness, named E_* errors).
@@ -130,14 +135,25 @@ TRIGGER, and '--no-tidy' turns all of it off:
     the row there; the sweep is bookkeeping after the fact and the archive keeps every byte. An
     archived name is never regenerated onto the roadmap: delete its archive row to bring it back.
   2 remove a worktree whose branch is PROVABLY contained in origin's default branch AND whose
-    'git status --porcelain' is empty — every byte of it is in origin, so nothing can be lost. THE
-    BRANCH IS NOT DELETED. When containment cannot be VERIFIED (origin's objects are not in this
-    clone), it reports and does nothing: an unfetched clone is never read as "merged". Merged but
-    dirty is also reported and never removed — it holds bytes that exist nowhere else.
-  3 'git worktree prune' — removes the REGISTRATION of a worktree whose directory is already gone.
+    'git status --porcelain' is empty — every byte of it is in origin, so nothing can be lost. The
+    BRANCH is not the worktree's to keep: it is item 3's business, by the owner's ruling of
+    2026-08-13. When containment cannot be VERIFIED (origin's objects are not in this clone), it
+    reports and does nothing: an unfetched clone is never read as "merged". Merged but dirty is also
+    reported and never removed — it holds bytes that exist nowhere else.
+  3 delete a LOCAL branch that is PROVABLY contained in origin's default branch. OWNER RULING,
+    2026-08-13: "the branch itself should be clean up - the remote branch dies on merge, the local
+    one needs to die too." The proof is item 2's proof, made by the same function, so the two can
+    never disagree about the same branch. WHAT MAKES IT REVERSIBLE IS THE PROOF, NOT THE FLAG: every
+    commit on the branch is contained in origin's default branch, so nothing on it exists only here
+    and 'git branch <name> <sha>' puts the ref back — this clone's reflog holds the tip besides.
+    NEVER DELETED: the branch you have checked out; a branch checked out in ANY worktree, read AFTER
+    item 2's removals so a branch freed this run counts and one still held does not; the default
+    branch itself, under whatever name origin gives it. Containment UNVERIFIED deletes nothing and
+    is reported with its reason — an unfetched clone is never read as "merged".
+  4 'git worktree prune' — removes the REGISTRATION of a worktree whose directory is already gone.
     By git's own definition it touches nothing on disk.
-Deleting a branch, moving anything toward 'complete', writing a document, ticking a box: all
-judgement, and none of it happens here.
+Moving anything toward 'complete', writing a document, ticking a box: all judgement, and none of it
+happens here.
 
 WHAT IT PRINTS FIRST — an INSTRUCTION, then the orientation. A SessionStart hook's stdout reaches the
 MODEL and never the transcript, so no hook mechanism can put any of this on a human's screen. The
@@ -221,12 +237,66 @@ for (const w of ctx.worktrees) {
   if (m.state === 'merged' && clean) {
     if (!TIDY) { report('would-remove', `worktree \`${w.label}\` is merged and clean and would be removed — not done (--no-tidy)`); continue; }
     const r = gitOut(['worktree', 'remove', w.path], { cwd: MAIN });
-    if (r.ok) tidied.push(`removed worktree \`${w.label}\` — branch \`${branch}\` @ ${head.slice(0, 8)} is contained in \`origin/${ctx.def}\` and 'git status --porcelain' was empty, so every byte of it is in origin. The BRANCH was not deleted.`);
+    if (r.ok) tidied.push(`removed worktree \`${w.label}\` — branch \`${branch}\` @ ${head.slice(0, 8)} is contained in \`origin/${ctx.def}\` and 'git status --porcelain' was empty, so every byte of it is in origin. The BRANCH is the branch tidy's business, below.`);
     else report('remove-failed', `worktree \`${w.label}\` is merged and clean but 'git worktree remove' failed: ${r.err.split('\n')[0]}`);
     continue;
   }
   if (m.state === 'unverified') report('unverified', `worktree \`${w.label}\`: whether it is merged is UNKNOWN — ${m.why}. Not removed. An unfetched clone is never read as "merged".`);
   else if (m.state === 'merged' && !clean) report('merged-dirty', `worktree \`${w.label}\` is merged into \`origin/${ctx.def}\` but is NOT clean, so it holds bytes that exist nowhere else. Not removed:\n      ${porcelain.split('\n').join('\n      ')}`);
+}
+
+// ---------------------------------------------------------------------------- tidy: merged branches
+//
+// OWNER RULING, 2026-08-13: "the branch itself should be clean up - the remote branch dies on merge,
+// the local one needs to die too." Until then this file removed the worktree and said in as many
+// words that THE BRANCH IS NOT DELETED; that refusal is overruled and the sentence is gone from the
+// help. What replaced it is not a lower bar, it is THE SAME BAR: containment is answered by
+// `mergedIntoDefault` — the one function the worktree removal above and the fact-check below both
+// ask — so there is exactly one copy of "is this in origin's default branch?" in the machinery and
+// no way for two answers to drift apart.
+//
+// WHY THIS IS REVERSIBLE, WHICH IS THE ONLY REASON IT IS ALLOWED HERE AT ALL: the proof says every
+// commit reachable from the branch tip is reachable from `origin/<default>`. Nothing on it exists
+// only on this machine, so `git branch -D` after that proof destroys no bytes — it drops a NAME, and
+// the name comes back with `git branch <name> <sha>` (the sha is printed with every deletion, and
+// HEAD's reflog holds it besides). `-D` rather than `-d` is correct precisely BECAUSE the proof was
+// already made and made against origin's default branch: `-d` would consult the branch's upstream,
+// which is a different and weaker question.
+//
+// NO NETWORK, like everything else here: containment is measured against `refs/remotes/origin/<def>`
+// as this clone last cached it. That is SAFE IN THIS DIRECTION and only this one — origin's default
+// branch only ever gains commits, so contained-in-the-cached-tip implies contained-in-the-real-tip,
+// and a stale clone can only ever refuse to delete something it could have deleted.
+//
+// It runs AFTER the worktree removals on purpose and re-reads `git worktree list` rather than
+// reusing the snapshot above: a branch whose worktree was just removed is now free to delete, and a
+// branch whose worktree is still standing must not be.
+if (ctx.locals.length) {
+  const BRANCH_PREFIX = 'branch refs/heads/';
+  const checkedOut = new Set(gitq(['worktree', 'list', '--porcelain'], MAIN).split('\n')
+    .filter((l) => l.startsWith(BRANCH_PREFIX)).map((l) => l.slice(BRANCH_PREFIX.length).trim()));
+  const unverified = new Map();          // reason -> the branches it applies to
+  for (const b of ctx.locals) {
+    // The three protections, in the order they are cheapest to answer. The first two are also
+    // enforced by git itself ('cannot delete branch used by worktree'), which is belt and braces
+    // rather than duplication: a guard whose failure mode is a caught error is not a guard.
+    if (checkedOut.has(b.name)) continue;                  // yours, or some worktree's, right now
+    if (ctx.def && b.name === ctx.def) continue;           // the default branch, under ITS OWN name
+    const m = mergedIntoDefault(b.sha, ctx.def);
+    if (m.state === 'unverified') { if (!unverified.has(m.why)) unverified.set(m.why, []); unverified.get(m.why).push(b.name); continue; }
+    if (m.state !== 'merged') continue;                    // unmerged is the ordinary case and is silent
+    if (!TIDY) { report('would-remove', `local branch \`${b.name}\` @ ${b.sha.slice(0, 8)} is contained in \`origin/${ctx.def}\` and would be DELETED — not done (--no-tidy)`); continue; }
+    const r = gitOut(['branch', '-D', b.name], { cwd: MAIN });
+    if (r.ok) tidied.push(`deleted local branch \`${b.name}\` @ ${b.sha.slice(0, 8)} — EVERY COMMIT ON IT IS CONTAINED IN \`origin/${ctx.def}\`, so nothing on it existed only on this machine; it was checked out in no worktree and is not the default branch. Put the name back with 'git branch ${b.name} ${b.sha.slice(0, 8)}' — the objects are in origin and this clone's reflog holds the tip.`);
+    else report('remove-failed', `local branch \`${b.name}\` is contained in \`origin/${ctx.def}\` but 'git branch -D' failed: ${r.err.split('\n')[0]}`);
+  }
+  // Grouped by REASON rather than one line per branch: when a clone cannot verify containment the
+  // cause is almost always repo-wide (no origin/HEAD, no cached origin/<def>), and the same sentence
+  // repeated once per branch is a finding people learn to skip past.
+  for (const [why, names] of unverified) {
+    const shown = names.slice(0, 12).map((n) => '`' + n + '`').join(', ') + (names.length > 12 ? ` … and ${names.length - 12} more` : '');
+    report('unverified', `whether ${names.length} local branch(es) are contained in the default branch is UNKNOWN, not false — ${why}. NONE was deleted: ${shown}. An unfetched clone is never read as "merged", and this script will not fetch for you.`);
+  }
 }
 
 // Re-read reality after the tidy: everything below derives from it, and deriving from a
@@ -530,7 +600,14 @@ const allowSpecs = [];
     report('local-only', `branch(es) with no upstream recorded in this clone, so nothing on them has been shown to reach origin: ${capped(noUp.map((b) => '`' + b.name + '`'))}. 'git push -u origin <branch>' when each is ready.`);
   }
   if (gone.length) {
-    report('local-only', `branch(es) whose upstream is GONE as of the last fetch: ${capped(gone.map((b) => '`' + b.name + '`'))}. Usually a merged PR whose branch was deleted on origin — reported, never acted on, because deleting a branch is a judgement.`);
+    // These are the leftovers of the branch tidy above, which has ALREADY deleted every local branch
+    // it could prove is contained in origin's default branch. So a branch that reaches this line has
+    // a gone upstream and NO such proof: it is unmerged, or containment could not be verified. That
+    // is the one case left where deleting it would destroy something, and it stays a judgement.
+    const why = TIDY
+      ? `and the branch tidy above did NOT delete these, so none of them is provably contained in ${ctx.def ? '`origin/' + ctx.def + '`' : "origin's default branch"}: each is unmerged, unverifiable, or checked out somewhere. Deleting one of THESE would destroy something, so it stays yours.`
+      : `and this run was '--no-tidy', so the branch tidy did not run at all; nothing here has been tested for containment by it.`;
+    report('local-only', `branch(es) whose upstream is GONE as of the last fetch: ${capped(gone.map((b) => '`' + b.name + '`'))}. Usually a merged PR whose branch was deleted on origin — ${why}`);
   }
   if (!snap.remoteRefs) {
     report('local-only', `this clone holds NO remote-tracking refs at all, so nothing in it has been shown to exist anywhere else. If this repo is meant to have an origin: 'git remote add origin <url> && git push -u origin <branch>'.`);

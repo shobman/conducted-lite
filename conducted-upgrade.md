@@ -171,3 +171,66 @@ Owner-name substitution as ever; merge, never overwrite.
 
 **ADOPT.** Nothing new behaviourally beyond loop step 7, which binds at this session's end: write
 the next brief before this context expires if decisions were made in it.
+
+## 2026-08-13 — a merged branch dies locally too (MACHINERY)
+
+**WHY.** The owner's ruling, in his words: *"the branch itself should be clean up - the remote
+branch dies on merge, the local one needs to die too."* Until it, `session-start` removed a merged
+worktree and said in as many words that the BRANCH IS NOT DELETED — so the remote branch died at
+merge, the worktree died at the next session, and the local ref accumulated forever until someone
+pruned by hand. That refusal is overruled. What replaces it is not a lower bar but **the same
+bar**: containment is answered by `mergedIntoDefault`, the one function the worktree removal and
+the fact-check already ask, so there is exactly one copy of "is this in origin's default branch?"
+in the machinery and no way for two answers to drift apart. The deletion is reversible **in
+substance, not merely on paper**: the proof says every commit reachable from the branch tip is
+reachable from `origin/<default>`, so nothing on the branch exists only on that machine and `-D`
+destroys no bytes — it drops a NAME. The TIDIED line prints the exact `git branch <name> <sha>`
+that puts the name back, and the reflog holds the tip besides. Three protections never delete: the
+branch you have checked out, a branch checked out in ANY worktree (re-read after the worktree
+removals, so a branch freed this run counts and one still held does not), and the default branch
+under whatever name origin gives it. Containment UNVERIFIED deletes nothing — an unfetched clone is
+never read as "merged", and the script still never fetches for you.
+
+**DETECT.** Run the local `node .claude/scripts/session-start.mjs --help` and read its OUTPUT: the
+entry is needed when the output contains `BRANCH IS NOT DELETED` and does not contain
+`OWNER RULING`. **Grep the help output, never the source file** — the new file quotes the overruled
+sentence verbatim in a source comment explaining the ruling, so a file search for it matches the
+UPGRADED copy and reports backwards. Two further traps, both from the help text being wrapped at
+the margin: the old help breaks the sentence as `THE` / `BRANCH IS NOT DELETED` across two lines, so
+searching for `THE BRANCH IS NOT DELETED` finds nothing anywhere; and the new help breaks
+`OWNER RULING,` / `2026-08-13` the same way, so searching for `OWNER RULING, 2026-08-13` finds
+nothing either. Match the short forms above and nothing longer.
+
+**PRECONDITION.** The machinery rule above: unmodified since adoption, or stop.
+
+**FETCH.** The same shallow clone as the guard entry, and nothing further:
+
+    git clone --depth 1 https://github.com/shobman/conducted-lite <tmp>
+
+A repo applying the guard machinery entry **today** gets this file in that same copy, and this
+entry's DETECT will then already pass — say so and move on. The entry exists for repos that applied
+the guard entry before this ruling landed, which received a `session-start.mjs` whose diff really
+was help text only.
+
+**APPLY** — via a dispatched builder, per the machinery rule: copy `.claude/scripts/session-start.mjs`
+verbatim from the clone. That single file is the whole change. It supersedes the guard entry's
+"help text only" description of this script — the tidy list gains a fourth item and the help gains
+the paragraph documenting it. `lite-core.mjs` and `lite-rules.mjs` are still **not** copied and
+still have not changed.
+
+**SELF-CHECK, must pass before commit**, from the local repo root:
+
+1. `node .claude/scripts/session-start.mjs --help` exits 0, its output contains `OWNER RULING`, and
+   its output contains `BRANCH IS NOT DELETED` **zero** times — the refusal is gone from the help,
+   which is the surface the ruling overruled.
+2. `node .claude/scripts/session-start.mjs --no-tidy` exits 0. This is the behavioural check: the
+   dry run walks every local branch and prints what it *would* delete without touching a ref. Any
+   `would-remove` lines it prints are INFORMATION FOR THE CONDUCTOR, not failures — they are the
+   dead branches the next real run will clear.
+
+A failing self-check is a stop-and-report: revert nothing, the working tree diff is the report.
+
+**ADOPT.** Nothing behavioural for the session — the tidy runs itself from the next session start.
+Say this plainly to the owner in advance, because the first run after this entry may delete several
+long-dead local branches at once, each line naming its containment proof and its one-line undo.
+**That is the ruling taking effect, not a fault.**

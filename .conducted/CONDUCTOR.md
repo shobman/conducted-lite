@@ -144,7 +144,8 @@ crash fires nothing, and `/clear` fires while the work continues, so it never cl
 
 **Each script documents its own guarantees, and `--help` is the reference — not this page.** A
 description kept by hand beside the thing it describes drifts from it: this section claimed five
-derived rungs, five checks and two tidy actions, where the code does four, four and three.
+derived rungs, five checks and two tidy actions, where the code does four, four and — since the
+owner's branch ruling of 2026-08-13 — four.
 
 **A worktree whose feature is declared `development` is IN FLIGHT: its uncommitted work is NAMED, not
 failed** — a live builder holds uncommitted work by design. Not a rubber stamp: the main checkout is

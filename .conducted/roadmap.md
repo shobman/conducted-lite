@@ -32,7 +32,7 @@
 
 ## development
 
-- [guard-false-positives](work/guard-false-positives/) — tech-design.md · branch `guard-false-positives` (local+origin)
+- [guard-false-positives](work/guard-false-positives/) — tech-design.md · branch `guard-false-positives` (origin only)
 
 ## complete
 <!-- conducted-lite:ledger:end -->
