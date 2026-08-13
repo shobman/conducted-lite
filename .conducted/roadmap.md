@@ -20,6 +20,7 @@
 - The ledger regenerates only at session start, so a feature created mid-session reads as an orphan worktree until someone re-runs it. Happened three times in one miq session and looked like a fault each time.
 - Copying a build output is deploying, not building, and the guard denies it. Needs a ruling either way rather than a case-by-case workaround.
 - The per-turn glance can contradict itself inside one sentence: it reported "no .conducted/work/guard-false-positives/ folder exists" while naming ` M .conducted/work/guard-false-positives/state.md` as the uncommitted file. It reads folder existence from the main checkout and dirt from the worktree. Observed 2026-08-13, twice.
+- A reader in a multi-checkout repo should name the tree it read. Three incidents of one class: the guard resolving the wrong tree from cwd (defect 7), the old glance reading folders from main and dirt from a worktree in one sentence, and a miq evaluator filing a false finding from a worktree pinned at an old commit. Cheapest form: a standard line in evaluator briefs — state your HEAD and cwd before reporting on .conducted/.
 - Capture the failing test's name by default. Two miq agents independently lost it to a grep pattern that omitted the failure marker, and neither intermittent failure was ever identified.
 
 ## new
