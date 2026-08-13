@@ -1,0 +1,54 @@
+# owner-verify — required-check gate that holds auto-merge until the OWNER has
+# ticked every verification checkbox in the PR body.
+#
+# Convention: an "OWNER verification box" is a task-list line whose box text
+# begins with the literal, case-sensitive prefix "OWNER:" — e.g.
+#   - [ ] OWNER: confirmed the remote renders the new pill on a real device
+# Ticking it (`- [x] OWNER:` or `- [X] OWNER:`) releases the gate for that
+# line. Ordinary `- [ ]` boxes (task lists, notes, checklists that aren't
+# owner-gated) are left alone — only the `OWNER:` prefix blocks the merge, so
+# this gate never traps a PR that wasn't written to require it.
+#
+# `edited` is in the trigger list on purpose: ticking a box in the GitHub UI
+# fires `pull_request: edited` with the new body, which is what lets this
+# check flip from failing to passing without a new commit.
+name: owner-verify
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+permissions: {}
+jobs:
+  owner-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check OWNER verification boxes
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${PR_BODY// /}" ]]; then
+            echo "PR body is empty — nothing to verify. PASS."
+            exit 0
+          fi
+
+          # Strip fenced code blocks first, so example boxes in a fence don't
+          # count. This is a regex-grade line-fence toggle, not a real
+          # Markdown parser — nested/inline-backtick edge cases aren't handled.
+          STRIPPED="$(awk '/^```/{c=!c; next} !c' <<< "$PR_BODY")"
+
+          UNTICKED="$(grep -E '^[[:space:]]*-[[:space:]]\[ \][[:space:]]OWNER:' <<< "$STRIPPED" || true)"
+
+          if [[ -n "$UNTICKED" ]]; then
+            echo "OWNER verification is incomplete. Unticked boxes:"
+            echo "$UNTICKED"
+            exit 1
+          fi
+
+          TICKED="$(grep -E '^[[:space:]]*-[[:space:]]\[[xX]\][[:space:]]OWNER:' <<< "$STRIPPED" || true)"
+          if [[ -n "$TICKED" ]]; then
+            echo "All OWNER verification boxes are ticked:"
+            echo "$TICKED"
+          else
+            echo "No OWNER verification boxes found in PR body. PASS."
+          fi
