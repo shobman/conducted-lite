@@ -22,6 +22,7 @@
 - The per-turn glance can contradict itself inside one sentence: it reported "no .conducted/work/guard-false-positives/ folder exists" while naming ` M .conducted/work/guard-false-positives/state.md` as the uncommitted file. It reads folder existence from the main checkout and dirt from the worktree. Observed 2026-08-13, twice.
 - A reader in a multi-checkout repo should name the tree it read. Three incidents of one class: the guard resolving the wrong tree from cwd (defect 7), the old glance reading folders from main and dirt from a worktree in one sentence, and a miq evaluator filing a false finding from a worktree pinned at an old commit. Cheapest form: a standard line in evaluator briefs — state your HEAD and cwd before reporting on .conducted/.
 - Capture the failing test's name by default. Two miq agents independently lost it to a grep pattern that omitted the failure marker, and neither intermittent failure was ever identified.
+- The gate ladder has rungs above the estate floor (gates + owner-verify + auto-merge, applied to 16 repos 2026-08-13). Each rung is one more required check, so adoption is a workflow plus one ruleset edit: a coverage floor that only ratchets up; brief-conformance as CI — a fresh-context agent answers "does this diff do what the brief said" and fails otherwise; build evidence in the PR — screenshots of the changed surface beside the OWNER box so the tick is informed. Admission test for any rung: watch it fail first (the "control that has never failed" line above is the same law).
 
 ## new
 
