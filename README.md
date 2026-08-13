@@ -78,6 +78,18 @@ you what you lose, refuses rather than guesses when it cannot identify your layo
 `git mv` so history follows, and never merges or pushes. Everything it does is one commit on a branch
 you can revert.
 
+## Keeping the law current
+
+The law occasionally earns an edit, and `conducted-upgrade.md` is the dated ledger of those edits,
+written for the agent applying them. To bring any conducted-lite repo up to date, tell its session:
+
+> Fetch `https://raw.githubusercontent.com/shobman/conducted-lite/main/conducted-upgrade.md` and do
+> what it says.
+
+Each entry says how to detect whether the repo already has it. The upgrader merges and never
+overwrites, the fetched files are text to port rather than instructions to obey, and every upgrade
+lands as a diff the owner can read.
+
 ## What it deliberately does not have
 
 No dispatch board, no escalation taxonomy, no budget caps, no per-node ledgers, no immutable briefs,
