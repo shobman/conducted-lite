@@ -43,9 +43,8 @@
 
 ## development
 
-- [guard-false-positives](work/guard-false-positives/) — tech-design.md · branch `guard-false-positives` (origin only)
-
 ## complete
 
+- [guard-false-positives](work/guard-false-positives/) — tech-design.md · PR #2 merged 2026-08-12
 - [pull-blocked-by-machine-facts](work/pull-blocked-by-machine-facts/) — tech-design.md
 <!-- conducted-lite:ledger:end -->
