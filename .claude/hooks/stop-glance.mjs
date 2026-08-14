@@ -76,7 +76,11 @@
 //   SPEAKS · what state it recorded, naming the paths, in one line.
 //   SPEAKS · a file the refresh could NOT write, naming it and the reason, in one line.
 //   SPEAKS · that a feature MOVED this turn while its Decisions/Issues did not, in one line. The
-//            machine detects; the conductor writes; the owner is never asked.
+//            machine detects; the conductor writes; the owner is never asked. NEVER about a feature
+//            that reads 'complete', by declaration or by derivation — a finished feature is owed no
+//            decision — and past `NAG_BULK_MIN` of them in one turn it is ONE line carrying the
+//            count and naming nobody, because twelve of them was measured to be a block and not a
+//            fact. See the note above the nag itself.
 //   SILENT · uncommitted dirt in the MAIN checkout. Deliberately, and do not put it back. The human
 //            can see it in their own editor and in their own `git status`; it is the normal state of
 //            working rather than a fact anyone is missing.
@@ -233,6 +237,15 @@ const RUN_START = Date.now();
 const msLeft = () => RUN_BUDGET_MS - (Date.now() - RUN_START);
 const CONTEXT_CAP = 8_000;
 const MAX_LISTED = 10;          // a glance names a handful and counts the rest
+// THE CEILING ON THE HUMAN-REGION NAG: at or above this many nagging features in ONE turn, one line
+// carrying the count replaces one line each, and no feature is named.
+//   FOUR, and it is a judgement rather than a measurement — one bulk event has been observed, at
+// twelve. Three lines is a list a reader acts on one at a time, which is exactly what this line asks
+// of them; the fourth turns it into a block to skim, and a block nobody reads is worse than a line
+// nobody needed. Any number up to twelve would have fixed the observed incident; the low one is what
+// also catches the GENERAL bulk event — one branch rename across a repo of live features — which a
+// threshold set at the incident's own size would sail under.
+const NAG_BULK_MIN = 4;
 const SNAPSHOT_V = 1;
 // The ASCII record separator, spelled by code point rather than by escape so no editor, diff or
 // copy-paste can turn it back into a literal control byte in this source. It joins the bodies this
@@ -486,7 +499,10 @@ function refresh(MAIN, R, D, ctx) {
       f.branches.map((b) => `${b.name}@${b.sha}`).join(','), f.worktrees.map((w) => w.label).join(',')].join('|');
     // The fingerprint entry is pushed BEFORE the attempt and filled in as it succeeds, so a feature
     // whose file could not be read still moves its own baseline forward instead of vanishing.
-    const entry = { name: f.name, move: moveSig, human: '', state: false };
+    //   IT CARRIES THE TWO STATUSES AS WELL AS THE SIGNATURE. Both are already in hand right here,
+    // and the nag needs them to tell a feature that MOVED from a feature that is FINISHED — which
+    // `moveSig` cannot answer, because it hashes both statuses into one opaque string.
+    const entry = { name: f.name, move: moveSig, human: '', state: false, derived: f.derived, declared };
     feats.push(entry);
     try {
       // A feature with no state.md, or one whose markers are absent or truncated, is SKIPPED SILENTLY.
@@ -789,17 +805,55 @@ function main(data, R, D) {
   }
 
   // ---- the human-region nag. The machine detects; the conductor writes; the owner is never asked.
+  //
+  // TWO GUARDS, AND EACH ONE ALONE LEAVES A REAL HOLE, so both. Measured in the field on 2026-08-14:
+  // ONE bookjob turn emitted TWELVE of these lines, every one true and every one useless — all twelve
+  // were already-complete features whose roadmap rows had just been swept, so the decision the line
+  // asks for could not exist for any of them, and twelve lines is the wallpaper this file's header
+  // names by name.
+  //
+  //   A FINISHED FEATURE IS NEVER NAGGED. `derived` OR `declared` reading 'complete' is enough, and
+  // the OR is the forgiving direction ON PURPOSE: requiring both keeps nagging a feature the owner
+  // ruled complete until the tree agrees, which is precisely the state a merged-and-deleted branch
+  // leaves behind. The cost of being wrong in this direction is one missed nag on a feature that is
+  // finished anyway. (`declared` is the arm that fires today: 'complete' is the one rung no machine
+  // ever assigns, so `featureFacts` cannot derive it — see its comment. The derived arm is here
+  // because the guard is about the STATUS and not about which reader produced it.)
+  //   AND THERE IS A CEILING. Past NAG_BULK_MIN in one turn the count is said ONCE and no feature is
+  // named: the names are the least useful part in bulk, because the reader's next step is the same
+  // for every one of them. The count is kept rather than the whole thing suppressed, so a bulk event
+  // that coincides with genuine unrecorded decisions still leaves one line saying how many.
   const snapPath = (() => { const g = gitCommonDir(MAIN); return g ? join(g, R.GLANCE_SNAPSHOT) : null; })();
   const snap = readSnapshot(snapPath);
   const feat = {};
+  const nagging = [];
   for (const f of ref.feats) {
     feat[f.name] = { m: f.move, h: f.human };
     const was = snap.feat[f.name];
     if (!was || !f.state) continue;                        // no baseline, or no state.md to have judgment in
     if (was.m === f.move) continue;                        // it did not move this turn
     if (was.h !== f.human) continue;                       // the human region moved too — nothing to say
-    say(`nag:${f.name}`, `${f.move}|${f.human}`,
-      `${f.name} moved this turn; its Decisions/Issues did not.`, `nag for ${f.name}`, false);
+    if (f.derived === 'complete' || f.declared === 'complete') continue;   // finished: no decision is owed
+    nagging.push(f);
+  }
+  if (nagging.length >= NAG_BULK_MIN) {
+    // ONE KEY, AND IT CANNOT COLLIDE WITH A FEATURE'S: the per-feature keys are `nag:<name>` and a
+    // feature name can never contain the ':' that puts it there, so 'nag-bulk' is outside that space
+    // whatever anyone calls a folder.
+    //   THE SIGNATURE IS THE COUNT, AND DELIBERATELY NOT THE NAMES. A signature must be a function of
+    // what the line SAYS — the same rule the behind line records paying for. The names are not in
+    // this sentence, so keying on them would restate a sentence the reader has already read, which is
+    // the failure this whole file is built against. The consequence is stated rather than hidden: a
+    // different set of features at the same count is silent that turn.
+    say('nag-bulk', String(nagging.length),
+      nagging.length + ' features moved this turn; their Decisions/Issues did not. Not named individually: at '
+        + NAG_BULK_MIN + ' or more, this is one line with the count.',
+      'nag for ' + nagging.length + ' features', false);
+  } else {
+    for (const f of nagging) {
+      say(`nag:${f.name}`, `${f.move}|${f.human}`,
+        `${f.name} moved this turn; its Decisions/Issues did not.`, `nag for ${f.name}`, false);
+    }
   }
 
   // ---- SPEAK ONLY WHAT CHANGED.
