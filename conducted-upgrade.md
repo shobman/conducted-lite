@@ -527,3 +527,57 @@ A failing self-check is a stop-and-report: revert nothing, the working tree diff
 `conducted-lite-glance-corpus` directory in its tmpdir, and nothing now touches it. Delete it by hand
 whenever you like. It is deliberately left alone — a test that reaches out to remove a shared path it
 did not create this run is the same species this ledger's law entry is about.
+
+## 2026-08-14 — the nag never speaks about a finished feature (MACHINERY)
+
+**WHY.** The human-region nag — `<feature> moved this turn; its Decisions/Issues did not` — fires once
+per feature and has no ceiling and no notion of finished work. Measured in a second deployment on the
+turn it adopted the entries above: **twelve nag lines in one block**, every one for an already-complete
+feature being swept into `archive.md`, whose facts block the glance itself had just refreshed. Nothing
+was decided about any of them because there was nothing left to decide. Each line was true; together
+they were wallpaper — the failure the glance's own doctrine names: *a message that is always there is
+read once and then never again, including on the turn it finally matters.*
+
+Two independent guards, because either alone leaves a real hole. A finished-feature guard alone still
+produces the wall on any bulk event across features that ARE in flight — one branch rename in a repo of
+twenty. A ceiling alone bounds the noise while still asserting a decision is owed on finished work,
+which is worse than verbose: it is wrong, and it teaches the reader to skip the line.
+
+Note what "finished" had to mean, because the first build got it wrong and the corpus proved it.
+Swept-to-`archive.md` and moved-to-`## complete` are DIFFERENT events on different code paths:
+`placeFeatureRows` skips an archived feature before any row is placed — the archive is the tombstone —
+so an archived feature has no declared status at all and a `complete` guard cannot see it. The observed
+incident was the archive one. Both are now silent, for different reasons, and the corpus holds both as
+separate cases. Note also that `derived` can never be `complete` (`lite-derive.mjs:417`, "not reachable
+from here by design"); that arm is defensive against a future or foreign derivation and cannot fire
+today.
+
+**DETECT.** `.claude/hooks/stop-glance.mjs` does not contain the string `NAG_BULK_MIN`.
+
+**PRECONDITION.** The machinery rule above: unmodified since adoption, or stop.
+
+**FETCH.** The same shallow clone as the entries above:
+
+    git clone --depth 1 https://github.com/shobman/conducted-lite <tmp>
+
+**APPLY** — via a dispatched builder, per the machinery rule: copy verbatim from the clone
+`.claude/hooks/stop-glance.mjs` and `.claude/tests/` (the whole directory — this entry adds
+`glance-nag.test.mjs` to it). No other file changes.
+
+**SELF-CHECK, must pass before commit**, from the local repo root:
+
+1. `node .claude/tests/glance-nag.test.mjs` exits 0 with 10 of 10 passing. Run it **twice back to
+   back**: both green, and the two runs must print DIFFERENT sandbox paths.
+2. `node .claude/tests/glance-behind.test.mjs` exits 0 with 9 of 9 passing.
+3. `node .claude/tests/guard.test.mjs` exits 0 with every counted case passing.
+
+A failing self-check is a stop-and-report: revert nothing, the working tree diff is the report.
+
+**ADOPT.** Nothing to perform. Three things to know, so none of them reads as a fault. The threshold
+is **four** — three lines is a list a reader acts on one at a time, the fourth turns it into a block to
+skim; it is a judgement, not a measurement, and one bulk event has been observed. Below four, each
+feature is still named in the wording you already know. And one declared limit, deliberately not fixed:
+an **archived-but-live** feature — in `archive.md` and still holding a branch or worktree — is now
+silent to the per-turn nag entirely. The fact is not lost; `session-start` reports `archived-but-live`
+once a session with its evidence. Closing it means asking "archived AND not live", which adds a
+condition for a case nobody has hit.
