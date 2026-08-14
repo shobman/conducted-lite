@@ -10,20 +10,19 @@
      reorders or rewrites it, never reads it as an instruction, and NEVER ticks an acceptance
      criterion. Do not hand-edit inside the markers: the next run overwrites it. -->
 
-**Verified 2026-08-13T09:50:41.075Z** by `node .claude/scripts/session-end.mjs`. Every line below is a command's output or a file that exists.
+**Verified 2026-08-14T15:29:52.589Z** by `node .claude/hooks/stop-glance.mjs`. Every line below is a command's output or a file that exists — re-derived locally at the end of a turn, with no network call. `node .claude/scripts/session-end.mjs` is the verifier and rewrites this block whole.
 
 - feature: `guard-false-positives`
 - folder: `.conducted/work/guard-false-positives/`
 - documents: tech-design.md
-- derived status: `development`   ·   roadmap says: `development`
-- branches:
-  - `guard-false-positives` @ `8dfa1019` (origin only)
+- derived status: `refined`   ·   roadmap says: `complete`
+- branches: none matching this feature name
 - worktrees: none
 - PR: #2 — DECLARED by the line "PR: #2" in the human region below. Nothing in git knows about a PR; `node .claude/scripts/session-start.mjs` checks it with one `gh pr list` call and reports UNVERIFIED when gh is not there.
 - session log (most recent, bounded):
   - `2026-08-13T09:50:41.075Z` session `83358833-f099-45a6-9856-ffba65bb04ee` — a commit inside the window touched `.conducted/work/guard-false-positives/tech-design.md`
   - `2026-08-12T14:42:47.034Z` session `scaffold` — folder and state.md created by .claude/scripts/session-end.mjs --new-feature
-<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTNUMDk6NTA6NDEuMDc1WiIsInN0YXR1cyI6ImRldmVsb3BtZW50IiwiYnJhbmNoZXMiOlsiZ3VhcmQtZmFsc2UtcG9zaXRpdmVzIl0sIndvcmt0cmVlcyI6W10sInByIjoiMiJ9 -->
+<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTRUMTU6Mjk6NTIuNTg5WiIsInN0YXR1cyI6InJlZmluZWQiLCJicmFuY2hlcyI6W10sIndvcmt0cmVlcyI6W10sInByIjoiMiJ9 -->
 <!-- conducted-lite:sessions W3siYXQiOiIyMDI2LTA4LTEzVDA5OjUwOjQxLjA3NVoiLCJpZCI6IjgzMzU4ODMzLWYwOTktNDVhNi05ODU2LWZmYmE2NWJiMDRlZSIsIm5vdGUiOiJhIGNvbW1pdCBpbnNpZGUgdGhlIHdpbmRvdyB0b3VjaGVkIGAuY29uZHVjdGVkL3dvcmsvZ3VhcmQtZmFsc2UtcG9zaXRpdmVzL3RlY2gtZGVzaWduLm1kYCJ9LHsiYXQiOiIyMDI2LTA4LTEyVDE0OjQyOjQ3LjAzNFoiLCJpZCI6InNjYWZmb2xkIiwibm90ZSI6ImZvbGRlciBhbmQgc3RhdGUubWQgY3JlYXRlZCBieSAuY2xhdWRlL3NjcmlwdHMvc2Vzc2lvbi1lbmQubWpzIC0tbmV3LWZlYXR1cmUifV0= -->
 <!-- conducted-lite:judgment sha=b94934b13861982f at=2026-08-13T06:40:59.327Z -->
 <!-- conducted-lite:facts:end -->
@@ -33,6 +32,14 @@ PR: #2
 ## Decisions
 
 <!-- What was decided and WHY, with the evidence that would reopen it. Rewrite in place, dated. -->
+
+**2026-08-14 — moved to `## complete`, on the owner's delegation.** He ruled the stale-row review
+mine to make rather than his. Evidence: PR #2 merged 2026-08-12T23:36Z into main, merge commit
+`85ea080`; the branch is fully contained in `origin/main` and was already deleted server-side by
+`delete_branch_on_merge` — what the ledger had been reporting as a live remote branch was a stale
+remote-tracking ref in this clone, cleared by `git fetch --prune`. The corpus runs green here today:
+191 counted, 191 passed, group B clean. The five acceptance criteria remain UNTICKED — a completed
+rung and a ticked criterion are different records, and only the owner ticks.
 
 **2026-08-13 — the Bash scan resolves the write target from the position each shape puts it in,
 never from a scan of the token stream.** Every defect in this feature — eight from the field, seven
