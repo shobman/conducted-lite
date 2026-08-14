@@ -380,4 +380,23 @@ console.log(`SUMMARY  ${results.length} cases  ·  ${results.length - failed.len
 console.log('-'.repeat(78));
 console.log('');
 
+// CLEAN ON GREEN, KEEP ON RED. A fresh root per run is what makes the corpus safe to run anywhere,
+// and it is also what makes it accumulate: nine git repos a run, on every repo in the estate that
+// runs this as an upgrade self-check. So a passing run takes its own root away again. A FAILING run
+// leaves the tree exactly where the header said it is, because that is the only copy of the state a
+// red case failed in.
+//   Teardown is never a verdict. The verdict is already decided above; a remove that loses to a file
+// handle is litter, and litter must not move an exit code or contradict a case that passed.
+if (failed.length === 0) {
+  try {
+    rmSync(SANDBOX, { recursive: true, force: true });
+    console.log(`sandbox removed: ${SANDBOX}`);
+  } catch (e) {
+    console.log(`sandbox left behind (${e && e.code ? e.code : 'remove failed'}), delete it when you like: ${SANDBOX}`);
+  }
+} else {
+  console.log(`sandbox kept for inspection: ${SANDBOX}`);
+}
+console.log('');
+
 process.exit(failed.length === 0 ? 0 : 1);
