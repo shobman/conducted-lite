@@ -31,40 +31,46 @@
 <!-- What was decided and WHY, with the evidence that would reopen it. Rewrite in place, dated. -->
 
 **2026-08-13 — altitude: a problem, then a solution, and probably no tech design.** The hard part
-here is choosing which staleness is worth detecting, which is a problem question. The implementation
-lands inside a script that already derives everything the check needs. Reopens if the solution turns
-out to need state the session-start pass does not already hold.
+here is choosing which staleness is worth detecting, which is a problem question. Still holds after
+the 2026-08-15 rewrite: the implementation lands inside conductor-guard, which already intercepts
+every write. Reopens if the guard turns out to need state it does not already hold.
 
-**2026-08-13 — the check reports and never edits.** It names the contradiction and attaches its
-evidence, exactly as the existing fact-check does for a `state.md` claiming a branch that is not
-there. CONDUCTOR.md: *"It informs. It never blocks and it never decides."* A machine that silently
-corrected a standing instruction would be writing the conductor's briefing page for it.
+**2026-08-13 — the check reports and never edits.** Unchanged by the rewrite, and now also: never
+blocks. The flag rides the guard's existing interception of `CLAUDE.md` writes and only attaches
+words. CONDUCTOR.md: *"It informs. It never blocks and it never decides."* A machine that silently
+corrected — or refused — a standing instruction would be writing the conductor's briefing page.
+
+**2026-08-15 — the check moves to the write; all three session-start detectors are dropped.** The
+reasons are dated in `solution.md`: the name search needed a tree walk session start does not have,
+the path flag was the wallpaper mechanism `nag-becomes-wallpaper` just closed, and the
+settled-decision detector could not catch its own motivating incident without judging prose. The
+root fix is a standard — a standing instruction carries law and pointers, never a mutable fact —
+and the machinery enforces only its mechanically-checkable edge, at the write. Reopens if the field
+shows a name going stale AFTER a compliant write often enough to need a read-side net; that residue
+is declared in `solution.md`, not solved.
 
 ## Issues
 
 <!-- What is wrong or unresolved right now. Delete an issue when it is gone, never strike it out. -->
 
-**UNBLOCKED 2026-08-13.** Both deployments answered; `solution.md` is written and the detector set is
-decided. Two incidents, and the classes they name are in `problem.md`.
+**Open — the quiet test is the real acceptance.** Replay miq's 275-line instruction file and this
+repo's own `CLAUDE.md` through the write-time check. If the flags produce findings a human
+dismisses, the design is wrong and no amount of tuning the wording fixes it.
 
-**Open — the third detector is the weak one.** "A standing instruction describes a decision the repo
-shows as settled" needs the ruling to be visible in a document, and MukFork's was visible only as a
-tech design existing at all. It may reduce to the slug detector that already exists, in which case it
-should be dropped rather than shipped thin. Decide it while building, with the fixture in hand.
-
-**Open — the quiet test is the real acceptance.** Run against miq's 275-line instruction file. If the
-three detectors produce findings a human dismisses, the design is wrong and no amount of tuning the
-wording fixes it.
+**Open — the standard needs the owner's word before it is numbered.** `solution.md` proposes it for
+`standards.md`; a standard is his lane's contract with the output. Bring him the line, not an essay.
 
 ## Acceptance criteria
 
 <!-- Binary lines. Only a human ticks these: no script in this repo will ever tick one for you. -->
 
-- [ ] The MukFork incident is reproduced as a fixture — a standing instruction claiming an open
-      question that the ledger shows as decided — and the check names it on the first turn.
-- [ ] The check reports the contradiction with the evidence for both sides and changes nothing.
-- [ ] It is silent on an instruction file that is merely old, merely long, or merely vague. A run
-      against this repo's own files and miq's produces no finding that a human then has to dismiss.
-- [ ] Session start still costs what it costs now: no new subprocess, no new tree walk.
-- [ ] It fails open. A malformed or absent instruction file makes the check silent, never the
-      session start noisy or broken.
+- [ ] A write to `CLAUDE.md` carrying an absolute, platform-specific path is flagged once, on that
+      write, with the path quoted — and the write is never blocked.
+- [ ] A write carrying a backticked or path-shaped token the repo cannot find is flagged the same
+      way, naming what was searched and what was not found.
+- [ ] The standard lands as a numbered line in `standards.md`, citing both field incidents.
+- [ ] Session start costs exactly what it costs now: nothing from this feature runs there.
+- [ ] The quiet test: replaying miq's 275-line instruction file and this repo's own `CLAUDE.md`
+      through the write-time check produces no finding a human then has to dismiss.
+- [ ] It fails open. A guard error, an unreadable tree or malformed content flags nothing and
+      blocks nothing — the write always proceeds.
