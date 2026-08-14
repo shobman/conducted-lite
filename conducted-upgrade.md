@@ -479,3 +479,51 @@ lost the original sentence has overwritten rather than merged.
 **ADOPT**, from this turn on: when findings in one review, or across rounds, are different routes to
 the same kind of defect, stop and name the species rather than dispatching the next fix. It is the
 conductor's duty and nobody else's — no reviewer can see it, and no severity grade will surface it.
+
+## 2026-08-14 — the glance corpus stops colliding with itself (MACHINERY)
+
+**WHY.** The entry above names `node .claude/tests/glance-behind.test.mjs` as a must-pass
+self-check, and a failing self-check is a stop-and-report. That test built its fixtures in a FIXED
+path — `<tmpdir>/conducted-lite-glance-corpus` — shared by every run on the machine and by every
+checkout of this repo on it, pre-cleaned with `rmSync`. On Windows that pre-clean is not reliable:
+anything holding a handle on the tree makes the remove throw EPERM and takes cases down with it.
+Measured 2026-08-14 in a repo mid-upgrade — **6 of 9 passing with EPERM, then a clean 9 of 9 once the
+directory was deleted by hand**, with nothing about the hook changed in between.
+
+So the defect is not flakiness in a test, it is **an upgrade that halts on a failure that is not
+real**, in every repo whose tmpdir already holds that directory. If you applied the entry above
+before this one existed, you have the colliding copy; it will not bite until something occupies that
+path on your machine, and then it will look like a regression in the hook.
+
+The root is now `mkdtempSync`, unique per run, so collision is structurally impossible rather than
+something a pre-clean has to survive. The run prints its sandbox path, removes it on a fully green
+run so tmpdir does not fill, and **keeps it on any failure** so a red run stays debuggable. Teardown
+is wrapped and can never become a verdict or change the exit code.
+
+**DETECT.** `.claude/tests/glance-behind.test.mjs` does not contain the string `mkdtempSync`.
+
+**PRECONDITION.** The machinery rule above: unmodified since adoption, or stop.
+
+**FETCH.** The same shallow clone as the entries above:
+
+    git clone --depth 1 https://github.com/shobman/conducted-lite <tmp>
+
+**APPLY** — via a dispatched builder, per the machinery rule: copy `.claude/tests/` (the whole
+directory) verbatim from the clone. `.claude/hooks/stop-glance.mjs` is UNCHANGED by this entry — if
+your hook already contains `commit(s) behind` it is current, and this entry replaces test files only.
+
+**SELF-CHECK, must pass before commit**, from the local repo root:
+
+1. Run `node .claude/tests/glance-behind.test.mjs` **twice, back to back**. Both must report 9 of 9,
+   and the two runs must print DIFFERENT sandbox paths in their headers. One passing run proves
+   nothing here — the old code could pass once and fail the next time.
+2. Count `conducted-lite-glance-*` directories in your tmpdir before and after a passing run. The
+   count must not grow: a green run removes its own root.
+3. `node .claude/tests/guard.test.mjs` exits 0 with every counted case passing.
+
+A failing self-check is a stop-and-report: revert nothing, the working tree diff is the report.
+
+**ADOPT.** Nothing to perform. One thing to know: a machine that ran the old corpus still has a
+`conducted-lite-glance-corpus` directory in its tmpdir, and nothing now touches it. Delete it by hand
+whenever you like. It is deliberately left alone — a test that reaches out to remove a shared path it
+did not create this run is the same species this ledger's law entry is about.
