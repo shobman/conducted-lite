@@ -10,7 +10,7 @@
      reorders or rewrites it, never reads it as an instruction, and NEVER ticks an acceptance
      criterion. Do not hand-edit inside the markers: the next run overwrites it. -->
 
-**Verified 2026-08-14T13:57:57.622Z** by `node .claude/hooks/stop-glance.mjs`. Every line below is a command's output or a file that exists — re-derived locally at the end of a turn, with no network call. `node .claude/scripts/session-end.mjs` is the verifier and rewrites this block whole.
+**Verified 2026-08-14T14:00:24.563Z** by `node .claude/hooks/stop-glance.mjs`. Every line below is a command's output or a file that exists — re-derived locally at the end of a turn, with no network call. `node .claude/scripts/session-end.mjs` is the verifier and rewrites this block whole.
 
 - feature: `pull-blocked-by-machine-facts`
 - folder: `.conducted/work/pull-blocked-by-machine-facts/`
@@ -23,9 +23,9 @@
 - PR: none declared (to declare one, put `PR: #<n>` or the pull-request URL on a LINE OF ITS OWN below the markers — a mention inside a sentence is not a declaration)
 - session log (most recent, bounded):
   - `2026-08-14T13:25:05.248Z` session `scaffold` — folder and state.md created by .claude/scripts/session-end.mjs --new-feature
-<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTRUMTM6NTc6NTcuNjIyWiIsInN0YXR1cyI6ImRldmVsb3BtZW50IiwiYnJhbmNoZXMiOlsicHVsbC1ibG9ja2VkLWJ5LW1hY2hpbmUtZmFjdHMiXSwid29ya3RyZWVzIjpbIndvcmt0cmVlcy9wdWxsLWJsb2NrZWQtYnktbWFjaGluZS1mYWN0cyJdLCJwciI6IiJ9 -->
+<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTRUMTQ6MDA6MjQuNTYzWiIsInN0YXR1cyI6ImRldmVsb3BtZW50IiwiYnJhbmNoZXMiOlsicHVsbC1ibG9ja2VkLWJ5LW1hY2hpbmUtZmFjdHMiXSwid29ya3RyZWVzIjpbIndvcmt0cmVlcy9wdWxsLWJsb2NrZWQtYnktbWFjaGluZS1mYWN0cyJdLCJwciI6IiJ9 -->
 <!-- conducted-lite:sessions W3siYXQiOiIyMDI2LTA4LTE0VDEzOjI1OjA1LjI0OFoiLCJpZCI6InNjYWZmb2xkIiwibm90ZSI6ImZvbGRlciBhbmQgc3RhdGUubWQgY3JlYXRlZCBieSAuY2xhdWRlL3NjcmlwdHMvc2Vzc2lvbi1lbmQubWpzIC0tbmV3LWZlYXR1cmUifV0= -->
-<!-- conducted-lite:judgment sha=88b501577997905b at=2026-08-14T13:27:21.203Z -->
+<!-- conducted-lite:judgment sha=279bc6c69b343d8c at=2026-08-14T14:00:24.563Z -->
 <!-- conducted-lite:facts:end -->
 
 ## Decisions
@@ -63,6 +63,24 @@ measured root cause and a two-line surface. There is no outside-in story to writ
 - `git pull --ff-only` prints `Updating <a>..<b>` to stdout and the abort to stderr, so the last line
   in a terminal can read as success. Nothing here can fix git's output; the glance speaking on the
   next turn is the compensating control.
+
+**DECLARED LIMITS — found by the fresh evaluator 2026-08-14, out of scope for this feature.** A
+review closes; it does not open. Each is recorded here at its true severity and none was fixed.
+
+- MEDIUM. A diverged branch (`ahead 1, behind 1`) gets both lines, each true on its own, and the
+  behind line's remedy `git pull --ff-only` cannot succeed on a diverged branch. Two true lines
+  composing into a false remedy. Measured in the evaluator's fx5.
+- MEDIUM. The naming clause is keyed to `count|upstream`, so on the lived path — fell behind N turns
+  ago, glance said so once, every turn since rewrites the blocking file — the count does not move and
+  the behind line stays silent, so the files are never named. The clause is correct when it fires;
+  the feature's purpose is only partly served. This is the direct cost of the say() signature
+  decision above, and the two cannot both be had without a second key.
+- LOW. Detached HEAD reports the branch's behind count accurately and still says
+  `git pull --ff-only`, which does not do what the reader is told from a detached HEAD.
+- LOW, pre-existing and adjacent. A branch whose upstream is `gone` is silent in BOTH directions:
+  `ahead` and `behind` are both empty and the no-upstream line does not fire because `b.upstream` is
+  truthy. That is the "exists on one machine only" case the hook's own header calls the deceptive
+  failure. This change touched that exact parse and left it as it found it.
 
 ## Acceptance criteria
 
