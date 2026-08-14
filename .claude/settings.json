@@ -1,5 +1,28 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "permissions": {
+    "allow": [
+      "Bash(cd *)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git rev-parse*)",
+      "Bash(git rev-list*)",
+      "Bash(git for-each-ref*)",
+      "Bash(git branch --list*)",
+      "Bash(git worktree list*)",
+      "Bash(git ls-files*)",
+      "Bash(git config --get*)",
+      "Bash(node .claude/tests/*)",
+      "Bash(node .claude/scripts/*)",
+      "Bash(node .claude/hooks/*)",
+      "Bash(node --version)",
+      "Bash(gh pr list*)",
+      "Bash(gh pr view*)",
+      "Bash(gh pr checks*)"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {
