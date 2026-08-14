@@ -10,22 +10,22 @@
      reorders or rewrites it, never reads it as an instruction, and NEVER ticks an acceptance
      criterion. Do not hand-edit inside the markers: the next run overwrites it. -->
 
-**Verified 2026-08-14T15:40:03.011Z** by `node .claude/hooks/stop-glance.mjs`. Every line below is a command's output or a file that exists — re-derived locally at the end of a turn, with no network call. `node .claude/scripts/session-end.mjs` is the verifier and rewrites this block whole.
+**Verified 2026-08-14T15:57:14.930Z** by `node .claude/hooks/stop-glance.mjs`. Every line below is a command's output or a file that exists — re-derived locally at the end of a turn, with no network call. `node .claude/scripts/session-end.mjs` is the verifier and rewrites this block whole.
 
 - feature: `nag-becomes-wallpaper`
 - folder: `.conducted/work/nag-becomes-wallpaper/`
 - documents: tech-design.md
 - derived status: `development`   ·   roadmap says: `development`
 - branches:
-  - `nag-becomes-wallpaper` @ `11acf564` (local)
+  - `nag-becomes-wallpaper` @ `095aebc8` (local)
 - worktrees:
   - `worktrees/nag-becomes-wallpaper` -> C:/code/repos/conducted-lite/worktrees/nag-becomes-wallpaper
 - PR: none declared (to declare one, put `PR: #<n>` or the pull-request URL on a LINE OF ITS OWN below the markers — a mention inside a sentence is not a declaration)
 - session log (most recent, bounded):
   - `2026-08-14T15:37:31.734Z` session `scaffold` — folder and state.md created by .claude/scripts/session-end.mjs --new-feature
-<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTRUMTU6NDA6MDMuMDExWiIsInN0YXR1cyI6ImRldmVsb3BtZW50IiwiYnJhbmNoZXMiOlsibmFnLWJlY29tZXMtd2FsbHBhcGVyIl0sIndvcmt0cmVlcyI6WyJ3b3JrdHJlZXMvbmFnLWJlY29tZXMtd2FsbHBhcGVyIl0sInByIjoiIn0= -->
+<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTRUMTU6NTc6MTQuOTMwWiIsInN0YXR1cyI6ImRldmVsb3BtZW50IiwiYnJhbmNoZXMiOlsibmFnLWJlY29tZXMtd2FsbHBhcGVyIl0sIndvcmt0cmVlcyI6WyJ3b3JrdHJlZXMvbmFnLWJlY29tZXMtd2FsbHBhcGVyIl0sInByIjoiIn0= -->
 <!-- conducted-lite:sessions W3siYXQiOiIyMDI2LTA4LTE0VDE1OjM3OjMxLjczNFoiLCJpZCI6InNjYWZmb2xkIiwibm90ZSI6ImZvbGRlciBhbmQgc3RhdGUubWQgY3JlYXRlZCBieSAuY2xhdWRlL3NjcmlwdHMvc2Vzc2lvbi1lbmQubWpzIC0tbmV3LWZlYXR1cmUifV0= -->
-<!-- conducted-lite:judgment sha=165398113d1e9068 at=2026-08-14T15:40:03.011Z -->
+<!-- conducted-lite:judgment sha=d1e653832ab03e1b at=2026-08-14T15:57:14.930Z -->
 <!-- conducted-lite:facts:end -->
 
 ## Decisions
@@ -40,6 +40,14 @@ either is measured redundant in the field.
 feature the owner ruled complete until the tree agrees, which is exactly the state a merged-and-
 deleted branch leaves. The cost of the forgiving direction is one missed nag on a finished feature.
 
+**2026-08-14 — archived counts as finished, and it is read from the events not a second call.**
+`placeFeatureRows` already reads `archive.md` to decide what not to regenerate and already reports
+every feature it skipped for that reason, so the archive keeps exactly ONE reader and the refresh
+gains no new call. The set degrades to EMPTY when the ledger could not be read — no roadmap, no
+markers, failed read — which reads as "not known to be archived" and never as "known not to be", so
+the nag speaks. Degrade to speaking, never to silence, matching the `declared` arm which reads its
+UNKNOWN sentence under the same conditions.
+
 **2026-08-14 — altitude: tech design only.** A machinery defect with a measured cause and a
 one-function surface. No outside-in story to write.
 
@@ -50,6 +58,23 @@ one-function surface. No outside-in story to write.
 - The threshold is a number chosen without field data. One bulk event has been observed, at twelve.
   If a real turn ever sits just under the ceiling and still reads as wallpaper, the number is wrong
   rather than the design.
+
+**DECLARED LIMIT — found by the builder against the conductor's own ruling, 2026-08-14.**
+
+- MEDIUM. An **archived-but-live** feature is now silent to the nag permanently. `session-start.mjs:428`
+  reports `archived-but-live` for a feature that is in `archive.md` AND still has a branch or worktree
+  — the machinery already knows an archived feature can still be moving. Under the archived guard,
+  someone can commit onto such a branch all session and the per-turn nag will never say its Decisions
+  did not move. NOT FIXED, by the conductor's ruling: the fact is not lost, session-start states it
+  once a session with its evidence; closing it means asking "archived AND not live", which adds a
+  condition for a case nobody has hit. Reopens on one real incident of a live archived feature
+  accumulating undocumented decisions.
+
+**HYPOTHESIS, carried not resolved.** bookjob reported thirteen rows swept and twelve nags. The gap
+is unexplained and nothing rests on it: the nag also requires `f.state` and a prior snapshot entry,
+so a swept feature with no `state.md`, or one with no baseline from the previous turn, would sweep
+without nagging. The builder could not verify the bookjob figures at all and correctly held them as
+the conductor's citation rather than its own observation.
 
 ## Acceptance criteria
 
