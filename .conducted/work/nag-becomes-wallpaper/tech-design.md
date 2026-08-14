@@ -72,6 +72,24 @@ still nags until the tree agrees, which is precisely the state a completed-and-d
 behind. Requiring either is the forgiving direction, and the cost of wrongly staying silent is one
 missed nag on a feature that is finished anyway.
 
+**Corrected 2026-08-14, on the builder's measurement.** The paragraph above reaches the right rule by
+the wrong reasoning, and the `derived` half of it is dead code. `featureFacts` cannot produce
+`complete` — `lite-derive.mjs:417`, *"`complete` is not reachable from here by design"* — so derived
+never RISES to complete; a merged-and-deleted branch makes it FALL to `refined`. The whole of the OR
+is carried by `declared`. The `derived` arm is kept as a defensive condition against a future or
+foreign derivation, and AC #2 is honest about being unfalsifiable against the shipped modules: it is
+exercised only through an injected derive shim.
+
+**Corrected 2026-08-14 — an ARCHIVED feature is finished, and the first design missed it.** This page
+originally treated "swept to `archive.md`" and "moved to `## complete`" as one event. They are two.
+`placeFeatureRows:511` skips an archived feature before any row is placed — *"the archive is the
+tombstone"* — so an archived feature has no declared status at all and the `complete` guard cannot
+see it. That matters because bookjob's real turn, the incident this feature exists for, WAS the
+archive sweep: its own report calls the twelve "archived-complete". As first built, the real incident
+was caught only by the ceiling — one line instead of twelve, still claiming a decision was owed on
+finished work. Archived now counts as finished in the same guard, and AC #7 gains the archive variant
+as a separate case, because the two events must both stay silent for different reasons.
+
 **Why the count and not silence.** Suppressing entirely would hide a real signal on the day a bulk
 event coincides with genuine unrecorded decisions. A count is one line and keeps the fact available.
 
