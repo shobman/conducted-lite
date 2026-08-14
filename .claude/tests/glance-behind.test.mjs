@@ -34,7 +34,7 @@
 //     would move `refs/remotes/`, and G8 reads those bytes before and after.
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, rmSync, copyFileSync, writeFileSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, copyFileSync, writeFileSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -53,9 +53,19 @@ if (!existsSync(GLANCE)) {
   process.exit(2);
 }
 
-// Fixed names, never a timestamp or a random suffix: a run of this corpus must be reproducible, and
-// a failing run must leave a tree someone can go and look at.
-const SANDBOX = join(tmpdir(), 'conducted-lite-glance-corpus');
+// A FRESH ROOT PER RUN, and the header prints it: a failing run still leaves a tree someone can go
+// and look at, and no two runs can ever be looking at the same one.
+//   It used to be the fixed path `conducted-lite-glance-corpus`, shared by every run on the machine
+// and by every checkout of this repo on it, pre-cleaned with `rmSync`. On Windows that pre-clean is
+// not reliable: anything holding a handle on the tree — a shell sitting in it, a git process that
+// has not exited, antivirus reading it — makes the remove throw EPERM and takes cases down with it.
+// Measured on 2026-08-14 in another repo mid-upgrade: 6 of 9 passing with EPERM, then a clean 9 of 9
+// once the directory was deleted by hand. Nothing about the hook had changed in between.
+//   That is worth more than the flakiness, because `conducted-upgrade.md` names this file as a
+// must-pass self-check and a failing self-check is a stop-and-report. A collision in tmpdir would
+// falsely halt an upgrade. `mkdtempSync` makes the collision structurally impossible rather than
+// something a pre-clean has to survive.
+const SANDBOX = mkdtempSync(join(tmpdir(), 'conducted-lite-glance-'));
 
 // ------------------------------------------------------------------------------- building a repo
 function git(cwd, args) {
@@ -72,7 +82,9 @@ function git(cwd, args) {
 // writes, rather than a write staged by hand — the wrote-list under test is the hook's own.
 function buildRepo(name) {
   const root = join(SANDBOX, name);
-  rmSync(root, { recursive: true, force: true });
+  // The root is this run's own, so this is only ever tidying after a re-entry within one run. It
+  // must not be able to throw: a remove that loses to a file handle is litter, never a verdict.
+  try { rmSync(root, { recursive: true, force: true }); } catch { /* litter, not a failure */ }
   const main = join(root, 'main');
   const origin = join(root, 'origin.git');
   mkdirSync(main, { recursive: true });
