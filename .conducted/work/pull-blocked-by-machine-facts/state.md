@@ -10,20 +10,18 @@
      reorders or rewrites it, never reads it as an instruction, and NEVER ticks an acceptance
      criterion. Do not hand-edit inside the markers: the next run overwrites it. -->
 
-**Verified 2026-08-14T14:27:45.070Z** by `node .claude/hooks/stop-glance.mjs`. Every line below is a command's output or a file that exists — re-derived locally at the end of a turn, with no network call. `node .claude/scripts/session-end.mjs` is the verifier and rewrites this block whole.
+**Verified 2026-08-14T14:33:24.530Z** by `node .claude/hooks/stop-glance.mjs`. Every line below is a command's output or a file that exists — re-derived locally at the end of a turn, with no network call. `node .claude/scripts/session-end.mjs` is the verifier and rewrites this block whole.
 
 - feature: `pull-blocked-by-machine-facts`
 - folder: `.conducted/work/pull-blocked-by-machine-facts/`
 - documents: tech-design.md
-- derived status: `development`   ·   roadmap says: `development`
-- branches:
-  - `pull-blocked-by-machine-facts` @ `a7d48cfb` (local)
-- worktrees:
-  - `worktrees/pull-blocked-by-machine-facts` -> C:/code/repos/conducted-lite/worktrees/pull-blocked-by-machine-facts
+- derived status: `refined`   ·   roadmap says: `complete`
+- branches: none matching this feature name
+- worktrees: none
 - PR: none declared (to declare one, put `PR: #<n>` or the pull-request URL on a LINE OF ITS OWN below the markers — a mention inside a sentence is not a declaration)
 - session log (most recent, bounded):
   - `2026-08-14T13:25:05.248Z` session `scaffold` — folder and state.md created by .claude/scripts/session-end.mjs --new-feature
-<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTRUMTQ6Mjc6NDUuMDcwWiIsInN0YXR1cyI6ImRldmVsb3BtZW50IiwiYnJhbmNoZXMiOlsicHVsbC1ibG9ja2VkLWJ5LW1hY2hpbmUtZmFjdHMiXSwid29ya3RyZWVzIjpbIndvcmt0cmVlcy9wdWxsLWJsb2NrZWQtYnktbWFjaGluZS1mYWN0cyJdLCJwciI6IiJ9 -->
+<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTRUMTQ6MzM6MjQuNTMwWiIsInN0YXR1cyI6InJlZmluZWQiLCJicmFuY2hlcyI6W10sIndvcmt0cmVlcyI6W10sInByIjoiIn0= -->
 <!-- conducted-lite:sessions W3siYXQiOiIyMDI2LTA4LTE0VDEzOjI1OjA1LjI0OFoiLCJpZCI6InNjYWZmb2xkIiwibm90ZSI6ImZvbGRlciBhbmQgc3RhdGUubWQgY3JlYXRlZCBieSAuY2xhdWRlL3NjcmlwdHMvc2Vzc2lvbi1lbmQubWpzIC0tbmV3LWZlYXR1cmUifV0= -->
 <!-- conducted-lite:judgment sha=3b9fd3025142bc24 at=2026-08-14T14:27:45.070Z -->
 <!-- conducted-lite:facts:end -->

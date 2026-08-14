@@ -46,5 +46,5 @@
 
 ## complete
 
-- [pull-blocked-by-machine-facts](work/pull-blocked-by-machine-facts/) — tech-design.md · merged to main 2026-08-14
+- [pull-blocked-by-machine-facts](work/pull-blocked-by-machine-facts/) — tech-design.md
 <!-- conducted-lite:ledger:end -->
