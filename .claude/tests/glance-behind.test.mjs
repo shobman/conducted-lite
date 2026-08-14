@@ -34,7 +34,7 @@
 //     would move `refs/remotes/`, and G8 reads those bytes before and after.
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, rmSync, copyFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, copyFileSync, writeFileSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -290,6 +290,42 @@ kase('G8', 'it reports and touches nothing: no stash, no discard, no checkout, n
   // The tree is dirty with the machine-written state.md, and that is the whole point: the hook
   // reports the blocked pull and leaves the block exactly where it is.
   need(fails, /state\.md/.test(before.status), 'the fixture is not in the state this case is about');
+  return { fails, text };
+});
+
+kase('G9', 'it never tells a reader the diff is safe to discard, because the human region is in it', () => {
+  const fails = [];
+  const repo = buildRepo('g9');
+  // THE STATE THIS CASE IS ABOUT, and it is the COMMON one rather than a corner: the human region of
+  // the same state.md is edited and uncommitted, and the facts block is rewritten this turn. A reader
+  // told the file is safe to throw away runs `git checkout --` and loses the Decisions they just
+  // wrote. The hook observes the block it regenerates; it has never observed the rest of that diff.
+  const statePath = join(repo.main, '.conducted', 'work', 'glancefix', 'state.md');
+  const before = readFileSync(statePath, 'utf8');
+  const anchor = before.indexOf('<!-- conducted-lite:facts:start -->');
+  need(fails, anchor > 0, 'the fixture state.md has no facts marker to sit above');
+  const edited = before.slice(0, anchor) + '## Decisions\n\n- 2026-08-14 keep the two-region splice.\n\n' + before.slice(anchor);
+  writeFileSync(statePath, edited);
+
+  putBehind(repo, 1);
+  const { text } = glance(repo.main);
+  const line = (text.split('\n').find((l) => l.includes('behind')) || '');
+
+  need(fails, /`main` is 1 commit\(s\) behind `origin\/main`/.test(line), `no behind line at all: ${text.replace(/\s+/g, ' ')}`);
+  need(fails, /rewrote[^\n]*`\.conducted\/work\/glancefix\/state\.md`/.test(line),
+    'the fixture is not in the state this case is about: the turn did not rewrite that state.md');
+  // The two shapes of the false claim: that the named files' CHANGES lose nothing, and that
+  // discarding them is the remedy. Either one, read literally, destroys the human edit above.
+  need(fails, !/loses nothing/.test(line),
+    `it claims the named files' changes lose nothing, and the human region is in those changes: ${line}`);
+  need(fails, !/discard/i.test(line),
+    `it points the reader at discarding a file that also holds their uncommitted human region: ${line}`);
+  // And it still says the thing it DID observe — the machine block comes back by itself.
+  need(fails, /regenerat|writes again|write again/.test(line),
+    'it no longer says the machine-written block comes back identically');
+  // The human edit is still on disk, untouched: the hook reports, it does not tidy.
+  need(fails, readFileSync(statePath, 'utf8').includes('keep the two-region splice'),
+    'the human region was not preserved across the refresh');
   return { fails, text };
 });
 

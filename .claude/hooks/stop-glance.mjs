@@ -762,11 +762,21 @@ function main(data, R, D) {
   // "it informs, it never blocks and it never decides". The file it would be discarding to unblock a
   // pull carries the human region this machinery exists to protect.
   for (const b of behind) {
+    // IT CLAIMS THE BLOCK, NEVER THE FILE. The clause used to end "so discarding those changes loses
+    // nothing the next glance does not write again", and "those changes" reads as the named files'
+    // whole working-tree diff — which this hook has NOT observed. The human region (Decisions, Issues,
+    // Acceptance criteria) lives in the SAME file, outside the facts markers, and a reader who follows
+    // that to `git checkout -- <file>` loses their own uncommitted judgment. It is not a corner case:
+    // the facts block is rewritten precisely BECAUSE the judgment hash moved, so the sentence is
+    // likeliest on exactly the turns where a discard destroys something. A generated row names what it
+    // found and never asserts a wider absence, so the claim is scoped to the bytes between the markers
+    // — the only thing this run rendered and compared — and the rest of the diff is left to its owner.
     const regen = ref.wrote.length
       ? ' This turn the glance rewrote ' + ref.wrote.slice(0, MAX_LISTED).map((w) => BQ + w + BQ).join(', ')
         + (ref.wrote.length > MAX_LISTED ? ' and ' + (ref.wrote.length - MAX_LISTED) + ' more' : '')
-        + '; only the machine-written block of each was rewritten, from what git and the filesystem show,'
-        + ' so discarding those changes loses nothing the next glance does not write again.'
+        + '; in each, only the machine-written block between the facts markers changed, and the next'
+        + ' glance regenerates that block identically; the rest of the diff in those files is human'
+        + ' region this hook has not characterised.'
       : '';
     // THE SIGNATURE IS THE COUNT AND THE UPSTREAM, AND DELIBERATELY NOT THE WROTE-LIST. Keying on
     // what was written too was measured restating the same count on the very next turn, because the
