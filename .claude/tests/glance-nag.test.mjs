@@ -8,10 +8,15 @@
 //
 // WHAT IT IS ABOUT. The nag fires once per feature and had no ceiling and no notion of a finished
 // feature. bookjob's turn of 2026-08-14 emitted TWELVE of them in one block, every one true and every
-// one useless: all twelve were complete features whose roadmap rows had just been swept, so the thing
-// the line asks for — a decision recorded against the move — could not exist for any of them. Twelve
-// lines is not a fact a conductor reads, it is wallpaper, which is the failure this hook's own header
-// names by name.
+// one useless: all twelve were complete features whose rows the previous session-start had SWEPT INTO
+// archive.md, so the thing the line asks for — a decision recorded against the move — could not exist
+// for any of them. Twelve lines is not a fact a conductor reads, it is wallpaper, which is the failure
+// this hook's own header names by name.
+//   THE SWEEP IS TWO EVENTS AND THEY ARE NOT THE SAME EVENT. The row moves to '## complete' (N7), and
+// then session-start moves it OUT of the roadmap into archive.md and leaves the feature folder alone
+// (N9, N10). The second one is the incident, and it is the one where 'declared complete' is no longer
+// true — an archived feature has no roadmap row to be declared by. Both must be silent, so both are
+// here.
 //
 // THE GLANCE IS DRIVEN AS A BLACK BOX, exactly as glance-behind.test.mjs drives it: spawned with
 // `node`, handed a real Stop payload on stdin, judged on what it prints. Nothing here imports it and
@@ -26,11 +31,15 @@
 // have moved FROM) and records one; the second is the turn under test. Every case below therefore
 // runs the glance at least twice, and the setup between the two runs is what the case is about.
 //
-// SET `GLANCE_UNDER_TEST` TO JUDGE A DIFFERENT HOOK FILE. That is how these cases were confirmed to
-// FAIL before the change existed: `git show HEAD:.claude/hooks/stop-glance.mjs` written BESIDE the
-// real hook (its rule imports resolve relative to itself, so it cannot be run from a tmpdir), and
-// N1, N2, N4, N7 and N8 go red while N3, N5 and N6 stay green — the three that assert what must NOT
-// change.
+// SET `GLANCE_UNDER_TEST` TO JUDGE A DIFFERENT HOOK FILE — an older hook written BESIDE the real one
+// (its rule imports resolve relative to itself, so it cannot be run from a tmpdir). That is how every
+// case here was confirmed to fail before the behaviour it asserts existed, against TWO baselines:
+//   · the hook before this feature (11acf56)   N1, N2, N4, N7 and N8 go red. N3, N5 and N6 stay
+//                                              green — they assert what must NOT change.
+//   · the feature's first commit (095aebc)     both status guards and the ceiling, and no archive
+//                                              arm: N9 goes red with THREE NAMED lines and N10 with
+//                                              ONE BULK line, which is the ceiling doing its job on
+//                                              a fact that should never have been spoken at all.
 //
 // EXIT CODE IS NON-ZERO WHILE ANY CASE FAILS. There are no known-failing groups here.
 //
@@ -154,11 +163,24 @@ function bump(repo, name, tag) {
   git(repo.main, ['branch', `${tag}/${name}`]);
 }
 
-// THE SWEEP, as a conductor performs it: the roadmap row moves under '## complete'. Nothing else
-// about the feature changes — no file in its folder is touched — and that is the whole of what
-// bookjob's twelve nags were about.
+// THE FIRST HALF OF A SWEEP, as a conductor performs it: the roadmap row moves under '## complete'.
+// Nothing else about the feature changes — no file in its folder is touched.
 function sweep(repo, names, rest = {}) {
   writeRoadmap(repo.main, { complete: names, ...rest });
+}
+
+// THE SECOND HALF, AND THE ONE bookjob ACTUALLY HIT. `session-start.mjs` sweeps '## complete' into
+// archive.md: the row LEAVES roadmap.md, archive.md keeps it verbatim, and THE FEATURE FOLDER IS NOT
+// TOUCHED. So on that turn the feature stops being declared 'complete' — `placeFeatureRows` skips an
+// archived feature before it places anything, so the declared status becomes '(not on the roadmap
+// yet)' — while its facts block is refreshed for exactly that reason. Reproduced here rather than
+// reasoned about: this is the shape that emitted twelve nags in one turn.
+function sweepToArchive(repo, names, rest = {}) {
+  writeRoadmap(repo.main, rest);                       // the rows are gone from the ledger
+  writeFileSync(join(repo.main, '.conducted', 'archive.md'),
+    '# archive\n\n<!-- conducted-lite:archive:start -->\n\n## 2026-08-15\n\n'
+    + names.map((n) => `- [${n}](work/${n}/) — swept\n`).join('')
+    + '\n<!-- conducted-lite:archive:end -->\n');
 }
 
 // ------------------------------------------------------------------------------------ driving it
@@ -321,7 +343,7 @@ kase('N6', 'the say() contract: it speaks on the turn it changes and is silent a
   return { fails, text: `1: ${first.text}\n2: ${second.text}\n3: ${third.text}` };
 });
 
-kase('N7', "bookjob's turn: twelve complete features, facts blocks refreshed, and no nag at all", () => {
+kase('N7', 'the roadmap variant: twelve features swept to `## complete`, facts blocks refreshed, no nag', () => {
   const fails = [];
   const names = Array.from({ length: 12 }, (_, i) => `feat${String(i + 1).padStart(2, '0')}`);
   const repo = buildRepo('n7', names);
@@ -363,6 +385,53 @@ kase('N8', 'the bulk line is keyed stably and its signature moves when the count
   const c = glance(repo.main);
   need(fails, nagLines(c.text).length === 0, `it repeated itself with nothing changed: ${nagLines(c.text).join(' | ')}`);
   return { fails, text: `1: ${a.text}\n2: ${b.text}\n3: ${c.text}` };
+});
+
+kase('N9', 'a feature swept into archive.md is not nagged, with too few of them for the ceiling to hide it', () => {
+  const fails = [];
+  const names = ['a01', 'a02', 'a03'];
+  const repo = buildRepo('n9', names);
+  // THE CEILING MUST NOT BE WHAT PASSES THIS CASE. Three is below NAG_BULK_MIN, so if the archive
+  // arm of the guard is missing this turn emits three NAMED lines and the case says so.
+  need(fails, names.length < BULK_MIN, `this case needs fewer than ${BULK_MIN} features to isolate the guard from the ceiling`);
+  sweep(repo, names);                                  // declared complete, as they are before a sweep
+  glance(repo.main);                                   // baseline
+  sweepToArchive(repo, names);                         // and now the rows leave the roadmap entirely
+  const { status, text } = glance(repo.main);
+  need(fails, status === 0, `exit ${status}, want 0`);
+  const refreshed = (text.split('\n').find((l) => l.includes('Updated state recorded')) || '');
+  for (const n of names) {
+    need(fails, refreshed.includes(`.conducted/work/${n}/state.md`),
+      `the turn did not refresh ${n}'s facts block, so nothing moved and the case would pass for the wrong reason: ${refreshed}`);
+  }
+  need(fails, nagLines(text).length === 0,
+    `${nagLines(text).length} nag line(s) about archived features: ${nagLines(text).join(' | ')}`);
+  return { fails, text };
+});
+
+kase('N10', "bookjob's turn, as it actually happened: twelve features swept INTO archive.md, and no nag at all", () => {
+  const fails = [];
+  const names = Array.from({ length: 12 }, (_, i) => `feat${String(i + 1).padStart(2, '0')}`);
+  const repo = buildRepo('n10', names);
+  sweep(repo, names);                                  // the thirteen-row '## complete' block, before the sweep
+  glance(repo.main);                                   // baseline: every facts block derived once
+  sweepToArchive(repo, names);                         // session-start's sweep: rows to archive.md, folders left
+  const { status, text } = glance(repo.main);
+  need(fails, status === 0, `exit ${status}, want 0`);
+  // THE FIXTURE IS THE INCIDENT ONLY IF THIS TURN REWROTE THOSE BLOCKS. The hook's own refresh line is
+  // its independent account of what it wrote, and every one of the twelve has to be in it — otherwise
+  // the case is passing because nothing moved rather than because the guard held.
+  const refreshed = (text.split('\n').find((l) => l.includes('Updated state recorded')) || '');
+  for (const n of names) {
+    need(fails, refreshed.includes(`.conducted/work/${n}/state.md`),
+      `the turn did not refresh ${n}'s facts block, so the fixture is not bookjob's turn: ${refreshed}`);
+  }
+  // NOT ONE BULK LINE EITHER. A count is the right answer for twelve features that might be owed a
+  // decision; it is the wrong answer for twelve that are archived and done, and it is still a line
+  // asserting something nobody can act on.
+  need(fails, nagLines(text).length === 0,
+    `${nagLines(text).length} nag line(s) on a turn where every feature was archived: ${nagLines(text).join(' | ')}`);
+  return { fails, text };
 });
 
 // --------------------------------------------------------------------------------------- running

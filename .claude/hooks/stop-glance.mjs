@@ -77,10 +77,10 @@
 //   SPEAKS · a file the refresh could NOT write, naming it and the reason, in one line.
 //   SPEAKS · that a feature MOVED this turn while its Decisions/Issues did not, in one line. The
 //            machine detects; the conductor writes; the owner is never asked. NEVER about a feature
-//            that reads 'complete', by declaration or by derivation — a finished feature is owed no
-//            decision — and past `NAG_BULK_MIN` of them in one turn it is ONE line carrying the
-//            count and naming nobody, because twelve of them was measured to be a block and not a
-//            fact. See the note above the nag itself.
+//            that reads FINISHED — 'complete' by declaration or by derivation, or a row in
+//            archive.md — because a finished feature is owed no decision; and past `NAG_BULK_MIN` of
+//            them in one turn it is ONE line carrying the count and naming nobody, because twelve of
+//            them was measured to be a block and not a fact. See the note above the nag itself.
 //   SILENT · uncommitted dirt in the MAIN checkout. Deliberately, and do not put it back. The human
 //            can see it in their own editor and in their own `git status`; it is the normal state of
 //            working rather than a fact anyone is missing.
@@ -471,12 +471,23 @@ function refresh(MAIN, R, D, ctx) {
   const roadmapPath = join(MAIN, R.ROADMAP_REL);
   let ledgerState = 'ok';
   let placed = new Map();
+  // WHICH FEATURES THE PLACEMENT PASS FOUND IN THE ARCHIVE, taken from ITS OWN events rather than
+  // from a second read of archive.md. `placeFeatureRows` already looks the set up to decide what not
+  // to regenerate, and it reports every feature it skipped for that reason; a second reader of the
+  // same file is how two answers to one question start disagreeing.
+  //   IT IS ONLY EVER POPULATED WHEN THE LEDGER WAS ACTUALLY READ. No roadmap, no markers, or a
+  // failure means there are no events and this set stays EMPTY — which reads as "not known to be
+  // archived", never as "known not to be", and the nag below degrades to speaking. Absence of
+  // evidence is not evidence of absence, one line further down than usual.
+  const archived = new Set();
   try {
     const rm = D.readSplit(roadmapPath, R.LEDGER_START, R.LEDGER_END);
     if (rm.blocked) skipped.push({ what: R.ROADMAP_REL, why: rm.blocked });
     if (rm.exists && rm.markers) {
       const ledger = R.parseLedger(rm.bodyBin);
-      D.placeFeatureRows(ledger, features, D.archivedNames(MAIN));
+      for (const ev of D.placeFeatureRows(ledger, features, D.archivedNames(MAIN))) {
+        if (ev.kind === 'archived' && ev.feature) archived.add(ev.feature.name);
+      }
       for (const f of features) if (f.place) placed.set(f.name, f.place);
       const body = D.renderLedger(ledger);
       if (body !== rm.bodyBin) { D.writeSplit(roadmapPath, rm, R.LEDGER_START, R.LEDGER_END, body); wrote.push(R.ROADMAP_REL); written.push(body); }
@@ -499,10 +510,11 @@ function refresh(MAIN, R, D, ctx) {
       f.branches.map((b) => `${b.name}@${b.sha}`).join(','), f.worktrees.map((w) => w.label).join(',')].join('|');
     // The fingerprint entry is pushed BEFORE the attempt and filled in as it succeeds, so a feature
     // whose file could not be read still moves its own baseline forward instead of vanishing.
-    //   IT CARRIES THE TWO STATUSES AS WELL AS THE SIGNATURE. Both are already in hand right here,
-    // and the nag needs them to tell a feature that MOVED from a feature that is FINISHED — which
-    // `moveSig` cannot answer, because it hashes both statuses into one opaque string.
-    const entry = { name: f.name, move: moveSig, human: '', state: false, derived: f.derived, declared };
+    //   IT CARRIES THE THREE WAYS A FEATURE READS FINISHED AS WELL AS THE SIGNATURE. All three are
+    // already in hand right here, and the nag needs them to tell a feature that MOVED from a feature
+    // that is FINISHED — which `moveSig` cannot answer, because it hashes the statuses into one
+    // opaque string and does not carry the archive at all.
+    const entry = { name: f.name, move: moveSig, human: '', state: false, derived: f.derived, declared, archived: archived.has(f.name) };
     feats.push(entry);
     try {
       // A feature with no state.md, or one whose markers are absent or truncated, is SKIPPED SILENTLY.
@@ -808,17 +820,27 @@ function main(data, R, D) {
   //
   // TWO GUARDS, AND EACH ONE ALONE LEAVES A REAL HOLE, so both. Measured in the field on 2026-08-14:
   // ONE bookjob turn emitted TWELVE of these lines, every one true and every one useless — all twelve
-  // were already-complete features whose roadmap rows had just been swept, so the decision the line
-  // asks for could not exist for any of them, and twelve lines is the wallpaper this file's header
-  // names by name.
+  // were complete features whose rows the previous session-start had swept out of the roadmap into
+  // archive.md, so the decision the line asks for could not exist for any of them, and twelve lines
+  // is the wallpaper this file's header names by name.
   //
-  //   A FINISHED FEATURE IS NEVER NAGGED. `derived` OR `declared` reading 'complete' is enough, and
-  // the OR is the forgiving direction ON PURPOSE: requiring both keeps nagging a feature the owner
-  // ruled complete until the tree agrees, which is precisely the state a merged-and-deleted branch
-  // leaves behind. The cost of being wrong in this direction is one missed nag on a feature that is
-  // finished anyway. (`declared` is the arm that fires today: 'complete' is the one rung no machine
-  // ever assigns, so `featureFacts` cannot derive it — see its comment. The derived arm is here
-  // because the guard is about the STATUS and not about which reader produced it.)
+  //   A FINISHED FEATURE IS NEVER NAGGED, and there are THREE ways to read finished. `derived` or
+  // `declared` saying 'complete', or the feature being IN THE ARCHIVE. Any one of them is enough,
+  // and the OR is the forgiving direction ON PURPOSE: requiring agreement keeps nagging a feature
+  // the owner ruled complete until the tree catches up, which is precisely the state a
+  // merged-and-deleted branch leaves behind. The cost of being wrong in this direction is one missed
+  // nag on a feature that is finished anyway.
+  //   THE ARCHIVE ARM IS THE ONE THAT CATCHES THE MEASURED INCIDENT, and it was missed the first
+  // time this was written. bookjob's turn was the SWEEP INTO archive.md, not a move to
+  // '## complete': session-start takes the row OUT of the roadmap and leaves the feature folder
+  // exactly where it is, so on that very turn the declared status stops being 'complete' and becomes
+  // '(not on the roadmap yet)'. Reproduced against this hook with both status arms already in place,
+  // 2026-08-15: two archived features, two nags. A row in archive.md is the tombstone this
+  // machinery already treats as final — `placeFeatureRows` will not even regenerate it onto the
+  // roadmap — so it is exactly the fact the nag needed.
+  //   (`derived` is the arm that cannot fire today: 'complete' is the one rung no machine ever
+  // assigns, so `featureFacts` cannot derive it — see its comment. It stays because the guard is
+  // about the STATUS and not about which reader produced it, and it costs one condition.)
   //   AND THERE IS A CEILING. Past NAG_BULK_MIN in one turn the count is said ONCE and no feature is
   // named: the names are the least useful part in bulk, because the reader's next step is the same
   // for every one of them. The count is kept rather than the whole thing suppressed, so a bulk event
@@ -833,7 +855,7 @@ function main(data, R, D) {
     if (!was || !f.state) continue;                        // no baseline, or no state.md to have judgment in
     if (was.m === f.move) continue;                        // it did not move this turn
     if (was.h !== f.human) continue;                       // the human region moved too — nothing to say
-    if (f.derived === 'complete' || f.declared === 'complete') continue;   // finished: no decision is owed
+    if (f.derived === 'complete' || f.declared === 'complete' || f.archived) continue;   // finished: no decision is owed
     nagging.push(f);
   }
   if (nagging.length >= NAG_BULK_MIN) {
