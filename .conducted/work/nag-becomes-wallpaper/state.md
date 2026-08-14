@@ -31,10 +31,33 @@ this feature replaces every line of it with what git and the filesystem actually
 
 <!-- What was decided and WHY, with the evidence that would reopen it. Rewrite in place, dated. -->
 
+**2026-08-14 — both guards, not one.** A `complete` guard alone fixes the observed incident and
+leaves the general one; a ceiling alone keeps nagging where no decision is possible. Reopens if
+either is measured redundant in the field.
+
+**2026-08-14 — `derived` OR `declared` is complete, not both.** Requiring both keeps nagging a
+feature the owner ruled complete until the tree agrees, which is exactly the state a merged-and-
+deleted branch leaves. The cost of the forgiving direction is one missed nag on a finished feature.
+
+**2026-08-14 — altitude: tech design only.** A machinery defect with a measured cause and a
+one-function surface. No outside-in story to write.
+
 ## Issues
 
 <!-- What is wrong or unresolved right now. Delete an issue when it is gone, never strike it out. -->
 
+- The threshold is a number chosen without field data. One bulk event has been observed, at twelve.
+  If a real turn ever sits just under the ceiling and still reads as wallpaper, the number is wrong
+  rather than the design.
+
 ## Acceptance criteria
 
 <!-- Binary lines. Only a human ticks these: no script in this repo will ever tick one for you. -->
+
+- [ ] A feature whose declared status is `complete` is never nagged, even when its move signature changed that turn.
+- [ ] A feature whose derived status is `complete` is never nagged, even when the roadmap still says otherwise.
+- [ ] Below the threshold, each nagging feature is still named individually, in the existing wording, unchanged.
+- [ ] At or above the threshold, one line is emitted carrying the count, and no feature is named.
+- [ ] A feature in flight whose human region did NOT move still nags — the signal this exists for is intact.
+- [ ] The nag still obeys the `say()` contract: it speaks when the fact changes and is silent across two consecutive turns with no change.
+- [ ] Reproducing bookjob's turn — twelve complete features whose facts blocks the glance refreshed — emits no nag at all.
