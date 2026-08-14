@@ -8,14 +8,28 @@ One rule per line or short block, numbered, each with a link or a sentence of ev
 cites the number; a builder is briefed with the number. A rule nobody can cite is not a standard,
 it is an opinion.
 
-<!-- Delete this scaffold and write the real ones. Two examples of the SHAPE, not the content: -->
+## 1. Review
 
-## 1. Product
+1.1 **More than one route to the same shape is a design finding, not another fix.** When findings
+in one review, or across successive rounds, are different routes to the same *kind* of defect, stop
+patching: name the species and bring the owner the shape rather than the next fix. **Severity hides
+this** — each instance is correctly graded LOW or MEDIUM, and nothing ever escalates, because the
+signal is in the repetition and not in any one finding. Evidence, both 2026-08-14: miq's publish
+workflow took three `/code-review` passes, each finding a different route to *a safety mechanism
+silently disarmed while a green check watched*, every finding LOW or MEDIUM; and this repo's
+behind-ness line drew three routes to *a machine prescribing a remedy for a state it never checked*
+— a diverged branch and a detached HEAD both told to run `git pull --ff-only`, and a discard advised
+as lossless — graded MEDIUM, MEDIUM, HIGH.
 
-1.1 *(example)* Every destructive action is reversible or confirmed, never both silent and
-permanent. Evidence: the 2026-03 incident where a bulk delete had no undo.
+1.2 **The trigger is routes held in one context, not rounds.** Rounds are only the case where no
+single context holds the instances. Fresh-context review makes each reviewer trustworthy and blind:
+it sees one instance, grades it correctly, and moves on. A conductor counting rounds would have
+stayed silent on 1.1's second example, where all three routes arrived in a single pass. Evidence:
+the round-counting draft was written on 2026-08-14 and falsified by an evaluation the same day.
 
-## 2. Engineering
-
-2.1 *(example)* No dependency without a named alternative that was rejected and why. Evidence:
-three of the last five security findings came from transitive dependencies nobody chose.
+1.3 **Noticing is the conductor's duty and nobody else's.** It is the only role that holds the
+history across dispatches, so a rule scoped to reviewers cannot catch this.
+`superpowers:systematic-debugging` Phase 4.5 states the same principle for debugging, where one
+agent sees its own history; review→fix cycles have the identical shape and destroy that history by
+design. Evidence: in the miq session the conductor caught it by luck, off a pre-commitment made one
+turn earlier in conversation — which is not a mechanism.
