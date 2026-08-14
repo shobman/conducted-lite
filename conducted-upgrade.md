@@ -347,3 +347,72 @@ Owner-name substitution as ever; merge, never overwrite.
 **ADOPT**, from this turn on: record decisions, issues and evidence in `state.md` in the turn they
 happen, not at the end of the session. Session-end verifies that record; it is not the first writer
 of it, and anything you were saving up to write there is already late.
+
+## 2026-08-14 — the glance says when you are behind, and scopes what it claims (MACHINERY)
+
+**WHY.** The per-turn glance read the tracking string, parsed `ahead` out of it, and threw `behind`
+away — so a clone sitting behind its upstream got silence from the one hook that reads those refs.
+That matters here more than in an ordinary repo, because the glance itself writes
+`.conducted/work/<feature>/state.md` and `.conducted/roadmap.md` in the working tree, and an
+incoming commit touching the same file makes `git pull --ff-only` abort. Measured 2026-08-14: the
+pull exits 1, prints `Updating <a>..<b>` to **stdout** and the abort to **stderr**, so the last line
+a human sees reads like success; HEAD does not move; and the next glance rewrites the file again, so
+it never self-clears. `main` sits behind while looking fine. Reported independently from a second
+deployment, twice in one session.
+
+Note what this entry is NOT. The field report proposed suppressing rewrites "whose only delta is its
+own timestamp". That guard already existed and was already running in the reporting repo — the
+colliding rewrites carried identical facts and a moved judgment hash, which is a legitimate refresh
+after a human edited the region. Suppression cannot fix this; the rewrites that collide are the
+correct ones. The arrangement — generated locally every turn AND tracked in git — is the cause, and
+it is not being removed, because a gitignored facts block costs non-negotiable 4. So the glance
+reports the collision and stops. It informs; it never blocks and it never decides.
+
+A fresh evaluator then caught the first wording claiming too much: it ended "so discarding those
+changes loses nothing the next glance does not write again", and "those changes" reads as the named
+file's whole diff — which the hook never observed, and the human region lives in that same file. A
+reader following it to `git checkout -- <file>` loses their own uncommitted judgment, and likeliest
+on exactly the turns the sentence fires. The claim is now scoped to the bytes between the facts
+markers, which is the only thing the run rendered and compared.
+
+**DETECT.** `.claude/hooks/stop-glance.mjs` does not contain the string `commit(s) behind`. One
+ordinary source-file grep.
+
+**PRECONDITION.** The machinery rule above: unmodified since adoption, or stop.
+
+**FETCH.** The same shallow clone as the entries above, and nothing further:
+
+    git clone --depth 1 https://github.com/shobman/conducted-lite <tmp>
+
+**APPLY** — via a dispatched builder, per the machinery rule: copy verbatim from the clone
+`.claude/hooks/stop-glance.mjs` and `.claude/tests/` (the whole directory — this entry adds
+`glance-behind.test.mjs` to it). No other file changes. If the repo already applied a later clone of
+the entries above, its `.claude/tests/` may already carry the new corpus; the DETECT on the hook is
+the authority either way.
+
+**SELF-CHECK, must pass before commit**, from the local repo root:
+
+1. `node .claude/tests/guard.test.mjs` exits 0 with every counted case passing — unchanged by this
+   entry, and it is the regression check that the hook edit touched nothing else.
+2. `node .claude/tests/glance-behind.test.mjs` exits 0 with 9 of 9 cases passing. It builds its own
+   throwaway repo with a local bare origin and drives the hook out-of-process, so a foreign repo
+   sees the same verdicts as the canonical one. It needs no network.
+3. The behind line must never promise a safe discard. From the repo root:
+
+        grep -c "discarding those changes loses nothing" .claude/hooks/stop-glance.mjs
+
+   must print `0`. That string is the superseded wording; if it is present you have copied a
+   pre-2026-08-14 hook over the top.
+
+A failing self-check is a stop-and-report: revert nothing, the working tree diff is the report.
+
+**ADOPT.** Nothing to perform — the glance adopts itself on the next turn. Tell the owner two
+things in advance. First, if the repo is currently behind its upstream it will say so once on that
+turn, and then stay silent until the count moves; that is the change-only rule, not a fault.
+Second, four limits were found and deliberately not fixed, so nobody reports them as new: a
+**diverged** branch (ahead AND behind) gets both lines and the behind line's `git pull --ff-only`
+cannot succeed; the file-naming clause is keyed to the count, so on the lived path — fell behind
+turns ago, still being told nothing new — the files are not named again; a **detached HEAD** is told
+`git pull --ff-only`, which does not do what the reader is told; and a branch whose upstream is
+**gone** stays silent in both directions, which is pre-existing and adjacent rather than introduced
+here.

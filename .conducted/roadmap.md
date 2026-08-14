@@ -43,7 +43,8 @@
 ## development
 
 - [guard-false-positives](work/guard-false-positives/) — tech-design.md · branch `guard-false-positives` (origin only)
-- [pull-blocked-by-machine-facts](work/pull-blocked-by-machine-facts/) — tech-design.md · branch `pull-blocked-by-machine-facts` (local) · worktree `worktrees/pull-blocked-by-machine-facts`
 
 ## complete
+
+- [pull-blocked-by-machine-facts](work/pull-blocked-by-machine-facts/) — tech-design.md · merged to main 2026-08-14
 <!-- conducted-lite:ledger:end -->
