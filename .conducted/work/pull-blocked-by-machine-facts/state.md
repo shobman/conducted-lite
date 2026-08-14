@@ -10,22 +10,22 @@
      reorders or rewrites it, never reads it as an instruction, and NEVER ticks an acceptance
      criterion. Do not hand-edit inside the markers: the next run overwrites it. -->
 
-**Verified 2026-08-14T14:00:24.563Z** by `node .claude/hooks/stop-glance.mjs`. Every line below is a command's output or a file that exists — re-derived locally at the end of a turn, with no network call. `node .claude/scripts/session-end.mjs` is the verifier and rewrites this block whole.
+**Verified 2026-08-14T14:24:46.291Z** by `node .claude/hooks/stop-glance.mjs`. Every line below is a command's output or a file that exists — re-derived locally at the end of a turn, with no network call. `node .claude/scripts/session-end.mjs` is the verifier and rewrites this block whole.
 
 - feature: `pull-blocked-by-machine-facts`
 - folder: `.conducted/work/pull-blocked-by-machine-facts/`
 - documents: tech-design.md
 - derived status: `development`   ·   roadmap says: `development`
 - branches:
-  - `pull-blocked-by-machine-facts` @ `b5210be7` (local)
+  - `pull-blocked-by-machine-facts` @ `a7d48cfb` (local)
 - worktrees:
   - `worktrees/pull-blocked-by-machine-facts` -> C:/code/repos/conducted-lite/worktrees/pull-blocked-by-machine-facts
 - PR: none declared (to declare one, put `PR: #<n>` or the pull-request URL on a LINE OF ITS OWN below the markers — a mention inside a sentence is not a declaration)
 - session log (most recent, bounded):
   - `2026-08-14T13:25:05.248Z` session `scaffold` — folder and state.md created by .claude/scripts/session-end.mjs --new-feature
-<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTRUMTQ6MDA6MjQuNTYzWiIsInN0YXR1cyI6ImRldmVsb3BtZW50IiwiYnJhbmNoZXMiOlsicHVsbC1ibG9ja2VkLWJ5LW1hY2hpbmUtZmFjdHMiXSwid29ya3RyZWVzIjpbIndvcmt0cmVlcy9wdWxsLWJsb2NrZWQtYnktbWFjaGluZS1mYWN0cyJdLCJwciI6IiJ9 -->
+<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTRUMTQ6MjQ6NDYuMjkxWiIsInN0YXR1cyI6ImRldmVsb3BtZW50IiwiYnJhbmNoZXMiOlsicHVsbC1ibG9ja2VkLWJ5LW1hY2hpbmUtZmFjdHMiXSwid29ya3RyZWVzIjpbIndvcmt0cmVlcy9wdWxsLWJsb2NrZWQtYnktbWFjaGluZS1mYWN0cyJdLCJwciI6IiJ9 -->
 <!-- conducted-lite:sessions W3siYXQiOiIyMDI2LTA4LTE0VDEzOjI1OjA1LjI0OFoiLCJpZCI6InNjYWZmb2xkIiwibm90ZSI6ImZvbGRlciBhbmQgc3RhdGUubWQgY3JlYXRlZCBieSAuY2xhdWRlL3NjcmlwdHMvc2Vzc2lvbi1lbmQubWpzIC0tbmV3LWZlYXR1cmUifV0= -->
-<!-- conducted-lite:judgment sha=279bc6c69b343d8c at=2026-08-14T14:00:24.563Z -->
+<!-- conducted-lite:judgment sha=bfc2baf5ef542d9f at=2026-08-14T14:22:15.611Z -->
 <!-- conducted-lite:facts:end -->
 
 ## Decisions
@@ -48,6 +48,20 @@ restating the same count on the very next turn: the turn after a write writes no
 moves while the branch position does not. Signature is `count|upstream`; the file list is content on
 the turn it is said. Found by the builder against my design, which had asserted the say() contract
 would hold automatically. Reopens if a behind count is ever seen going unspoken.
+
+**2026-08-14 — the behind line claims the BLOCK, never the file.** The first wording ended "so
+discarding those changes loses nothing the next glance does not write again"; "those changes" reads
+as the named files' whole working-tree diff, which the hook never observed, and the human region
+lives in the same file. A reader following it to `git checkout -- <file>` loses their own
+uncommitted judgment — likeliest on exactly the turns the sentence fires, since the facts block is
+rewritten BECAUSE the judgment hash moved. Found by the fresh evaluator, graded HIGH, in scope
+because it is criterion 2's own wording. Fixed in `a7d48cf`, closed by G9 which was proven red
+first. Same law as `726ca15`: a generated row names what it found, it never asserts a wider absence.
+
+**2026-08-14 — no second evaluation for the wording fix.** Non-negotiable 2 says batch a fresh
+evaluator when a run of changes settles, not per tweak. The fix is one clause, closed by a
+red-first test, and the conductor ran both corpora (9/9 behind, 191/191 guard). Reopens if anything
+further changes on this branch before it merges.
 
 **2026-08-14 — altitude: tech design only, no problem.md or solution.md.** A machinery defect with a
 measured root cause and a two-line surface. There is no outside-in story to write.
