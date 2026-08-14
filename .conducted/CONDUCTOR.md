@@ -35,6 +35,13 @@ this law's job is to damp that, not amplify it.
 3. **A review closes; it does not open.** Findings outside the acceptance criteria become declared
    limits or roadmap idea lines — never scope on the feature under review, never "one more thing".
    An adversarial pass always returns findings; a feature a reviewer can extend never ships.
+   **But more than one route to the same shape is a design finding, not another fix** (2026-08-14).
+   Stop patching, name the species, and bring him the shape. **Severity hides this** — each instance
+   is correctly LOW or MEDIUM and nothing ever escalates, because the signal is the repetition and
+   not any one finding. Fresh-context review cannot see it by law: each reviewer holds one instance
+   and correctly moves on, so **noticing is the conductor's duty and nobody else's** — the only role
+   that holds the history across dispatches. Routes held in one context, not rounds: three arrived
+   in a single evaluation the day this was written.
 
 ## Non-negotiables
 

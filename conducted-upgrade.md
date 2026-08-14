@@ -416,3 +416,66 @@ turns ago, still being told nothing new — the files are not named again; a **d
 `git pull --ff-only`, which does not do what the reader is told; and a branch whose upstream is
 **gone** stays silent in both directions, which is pre-existing and adjacent rather than introduced
 here.
+
+## 2026-08-14 — more than one route to the same shape is a design finding (LAW)
+
+**WHY.** Fresh-context review is a non-negotiable and it has a structural blind spot: each reviewer
+holds exactly one instance of a defect, grades it correctly at its true severity — usually LOW or
+MEDIUM — and moves on. Nothing in its context contains the other instances. So a repeated failure
+*species* is invisible to every role except the conductor, which is the only one that holds the
+history across dispatches. Meanwhile the law beside it, "a review closes; it does not open", is
+correct and load-bearing but read at the wrong moment says *keep patching*, with nothing next to it
+saying *unless it is the same shape again*.
+
+Two independent instances, both 2026-08-14. A miq CI workflow took three `/code-review` passes, each
+finding a different route to *a safety mechanism silently disarmed while a green check watched*;
+every finding graded LOW or MEDIUM, nothing escalated, and the conductor caught it only by luck off
+a pre-commitment made one turn earlier in conversation — which is not a mechanism. Then this repo's
+own behind-ness line drew three routes to *a machine prescribing a remedy for a state it never
+checked* — a diverged branch and a detached HEAD both told to run `git pull --ff-only`, and a
+discard advised as lossless while the human region of that file was uncommitted — graded MEDIUM,
+MEDIUM and HIGH.
+
+Note the trigger, because the first draft got it wrong. It said "three rounds on one species". The
+second instance above arrived as three routes inside a **single** evaluation, so a round-counter
+would have stayed silent on the very case that falsified it. The trigger is **routes held in one
+context**; rounds are only the case where no single context holds them.
+
+`superpowers:systematic-debugging` Phase 4.5 states the same principle, scoped to debugging — where
+one agent sees its own history. Review→fix cycles have the identical shape and destroy that history
+by design, which is why the rule has to be written for them separately.
+
+**DETECT.** The local `.conducted/CONDUCTOR.md` has no line containing
+`more than one route to the same shape`.
+
+**FETCH.** The canonical law page, as in the first entry:
+
+    https://raw.githubusercontent.com/shobman/conducted-lite/main/.conducted/CONDUCTOR.md
+
+**APPLY** — your own hand; this is a LAW entry and `.conducted/**` is conductor-owned. Non-negotiable
+3 in the canonical page gains a continuation after "a feature a reviewer can extend never ships",
+opening:
+
+> **But more than one route to the same shape is a design finding, not another fix** (2026-08-14).
+> Stop patching, name the species, and bring him the shape.
+
+Port that continuation and nothing else. Owner-name substitution as ever — where the canonical text
+says "him", use the local page's owner. Merge, never overwrite: the rest of non-negotiable 3 is
+unchanged, and any local adaptation of it stays exactly as you found it.
+
+**NOTE ON THE CONSTITUTION.** The page's opening rule says every addition must evict something or
+become machinery. This entry evicts nothing, by owner ruling of 2026-08-14: the concern is
+conditioned on the page growing past two screens, and it has not. If your local page is already at
+that limit, the eviction is yours to choose — do not let this entry push it over without saying so.
+
+**SELF-CHECK, must pass before commit**, from the local repo root:
+
+    grep -c "more than one route to the same shape" .conducted/CONDUCTOR.md
+
+must print at least `1`, and the page must still contain its original
+`A review closes; it does not open.` — this is a continuation, not a replacement, and a run that
+lost the original sentence has overwritten rather than merged.
+
+**ADOPT**, from this turn on: when findings in one review, or across rounds, are different routes to
+the same kind of defect, stop and name the species rather than dispatching the next fix. It is the
+conductor's duty and nobody else's — no reviewer can see it, and no severity grade will surface it.
