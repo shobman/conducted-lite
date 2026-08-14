@@ -10,22 +10,20 @@
      reorders or rewrites it, never reads it as an instruction, and NEVER ticks an acceptance
      criterion. Do not hand-edit inside the markers: the next run overwrites it. -->
 
-**Verified 2026-08-14T15:57:14.930Z** by `node .claude/hooks/stop-glance.mjs`. Every line below is a command's output or a file that exists — re-derived locally at the end of a turn, with no network call. `node .claude/scripts/session-end.mjs` is the verifier and rewrites this block whole.
+**Verified 2026-08-14T16:04:45.944Z** by `node .claude/hooks/stop-glance.mjs`. Every line below is a command's output or a file that exists — re-derived locally at the end of a turn, with no network call. `node .claude/scripts/session-end.mjs` is the verifier and rewrites this block whole.
 
 - feature: `nag-becomes-wallpaper`
 - folder: `.conducted/work/nag-becomes-wallpaper/`
 - documents: tech-design.md
-- derived status: `development`   ·   roadmap says: `development`
-- branches:
-  - `nag-becomes-wallpaper` @ `095aebc8` (local)
-- worktrees:
-  - `worktrees/nag-becomes-wallpaper` -> C:/code/repos/conducted-lite/worktrees/nag-becomes-wallpaper
+- derived status: `refined`   ·   roadmap says: `development`
+- branches: none matching this feature name
+- worktrees: none
 - PR: none declared (to declare one, put `PR: #<n>` or the pull-request URL on a LINE OF ITS OWN below the markers — a mention inside a sentence is not a declaration)
 - session log (most recent, bounded):
   - `2026-08-14T15:37:31.734Z` session `scaffold` — folder and state.md created by .claude/scripts/session-end.mjs --new-feature
-<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTRUMTU6NTc6MTQuOTMwWiIsInN0YXR1cyI6ImRldmVsb3BtZW50IiwiYnJhbmNoZXMiOlsibmFnLWJlY29tZXMtd2FsbHBhcGVyIl0sIndvcmt0cmVlcyI6WyJ3b3JrdHJlZXMvbmFnLWJlY29tZXMtd2FsbHBhcGVyIl0sInByIjoiIn0= -->
+<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTRUMTY6MDQ6NDUuOTQ0WiIsInN0YXR1cyI6InJlZmluZWQiLCJicmFuY2hlcyI6W10sIndvcmt0cmVlcyI6W10sInByIjoiIn0= -->
 <!-- conducted-lite:sessions W3siYXQiOiIyMDI2LTA4LTE0VDE1OjM3OjMxLjczNFoiLCJpZCI6InNjYWZmb2xkIiwibm90ZSI6ImZvbGRlciBhbmQgc3RhdGUubWQgY3JlYXRlZCBieSAuY2xhdWRlL3NjcmlwdHMvc2Vzc2lvbi1lbmQubWpzIC0tbmV3LWZlYXR1cmUifV0= -->
-<!-- conducted-lite:judgment sha=d1e653832ab03e1b at=2026-08-14T15:57:14.930Z -->
+<!-- conducted-lite:judgment sha=06a9bb2728b61763 at=2026-08-14T16:04:45.944Z -->
 <!-- conducted-lite:facts:end -->
 
 ## Decisions
