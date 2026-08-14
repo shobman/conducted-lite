@@ -75,6 +75,16 @@ from "resolve a conflict" to "discard a block that regenerates identically".
 It stays inside the existing `say()` change-detection, so it is silent while the fact holds steady
 and speaks when it moves — the same contract every other line of the glance obeys.
 
+**Corrected 2026-08-14, on the builder's measurement.** That last paragraph was wrong to call the
+say() contract automatic here, and this design originally implied the wrote-list could go in the
+signature. It cannot: the turn *after* a writing turn writes nothing, so a key containing the
+wrote-list "moves" while the branch position has not, and the same count is restated. The signature
+is `count|upstream` only; the wrote-list is content on the turn it is spoken. Two further
+corrections from the same source: `ref.wrote` does not exist at the point in the run where `ahead`
+is spoken, so collection and emission had to be separated; and `roadmap.md` is in `ref.wrote`
+alongside `state.md` and is equally generated-and-tracked, so it blocks a pull the same way and is
+named the same way — this design under-described the surface by naming only `state.md`.
+
 ### Why panel
 
 **Why report rather than fix it.** A hook that discarded a dirty file to unblock a pull would be

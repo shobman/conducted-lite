@@ -10,21 +10,22 @@
      reorders or rewrites it, never reads it as an instruction, and NEVER ticks an acceptance
      criterion. Do not hand-edit inside the markers: the next run overwrites it. -->
 
-**Scaffolded 2026-08-14T13:25:05.248Z** by `node .claude/scripts/session-end.mjs --new-feature pull-blocked-by-machine-facts`. NOTHING IS VERIFIED HERE YET:
-the folder exists and that is the only fact in this block. The first session-end run that touches
-this feature replaces every line of it with what git and the filesystem actually show.
+**Verified 2026-08-14T13:57:57.622Z** by `node .claude/hooks/stop-glance.mjs`. Every line below is a command's output or a file that exists — re-derived locally at the end of a turn, with no network call. `node .claude/scripts/session-end.mjs` is the verifier and rewrites this block whole.
 
 - feature: `pull-blocked-by-machine-facts`
 - folder: `.conducted/work/pull-blocked-by-machine-facts/`
-- documents: (none yet — legal; see the altitude law in .conducted/CONDUCTOR.md)
-- derived status: `new` — the folder exists and nothing else does yet
-- branches: none matching this feature name
-- worktrees: none
+- documents: tech-design.md
+- derived status: `development`   ·   roadmap says: `development`
+- branches:
+  - `pull-blocked-by-machine-facts` @ `b5210be7` (local)
+- worktrees:
+  - `worktrees/pull-blocked-by-machine-facts` -> C:/code/repos/conducted-lite/worktrees/pull-blocked-by-machine-facts
 - PR: none declared (to declare one, put `PR: #<n>` or the pull-request URL on a LINE OF ITS OWN below the markers — a mention inside a sentence is not a declaration)
 - session log (most recent, bounded):
   - `2026-08-14T13:25:05.248Z` session `scaffold` — folder and state.md created by .claude/scripts/session-end.mjs --new-feature
-<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTRUMTM6MjU6MDUuMjQ4WiIsInN0YXR1cyI6Im5ldyIsImJyYW5jaGVzIjpbXSwid29ya3RyZWVzIjpbXSwicHIiOiIifQ== -->
+<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTRUMTM6NTc6NTcuNjIyWiIsInN0YXR1cyI6ImRldmVsb3BtZW50IiwiYnJhbmNoZXMiOlsicHVsbC1ibG9ja2VkLWJ5LW1hY2hpbmUtZmFjdHMiXSwid29ya3RyZWVzIjpbIndvcmt0cmVlcy9wdWxsLWJsb2NrZWQtYnktbWFjaGluZS1mYWN0cyJdLCJwciI6IiJ9 -->
 <!-- conducted-lite:sessions W3siYXQiOiIyMDI2LTA4LTE0VDEzOjI1OjA1LjI0OFoiLCJpZCI6InNjYWZmb2xkIiwibm90ZSI6ImZvbGRlciBhbmQgc3RhdGUubWQgY3JlYXRlZCBieSAuY2xhdWRlL3NjcmlwdHMvc2Vzc2lvbi1lbmQubWpzIC0tbmV3LWZlYXR1cmUifV0= -->
+<!-- conducted-lite:judgment sha=88b501577997905b at=2026-08-14T13:27:21.203Z -->
 <!-- conducted-lite:facts:end -->
 
 ## Decisions
@@ -41,6 +42,12 @@ human region and provenance are all unchanged.
 **2026-08-14 — the glance reports, it does not unblock.** No stashing, discarding or pulling on
 anyone's behalf: CONDUCTOR.md's "it informs, it never blocks and it never decides", and the file it
 would be discarding is the human region this machinery exists to protect.
+
+**2026-08-14 — the wrote-list stays OUT of the say() signature.** Keying on it was measured
+restating the same count on the very next turn: the turn after a write writes nothing, so the key
+moves while the branch position does not. Signature is `count|upstream`; the file list is content on
+the turn it is said. Found by the builder against my design, which had asserted the say() contract
+would hold automatically. Reopens if a behind count is ever seen going unspoken.
 
 **2026-08-14 — altitude: tech design only, no problem.md or solution.md.** A machinery defect with a
 measured root cause and a two-line surface. There is no outside-in story to write.
