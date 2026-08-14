@@ -63,6 +63,9 @@
 // WHAT IT SPEAKS ABOUT:
 //
 //   SPEAKS · local commits ahead of their upstream, vs last fetch.
+//   SPEAKS · a branch BEHIND its upstream, vs last fetch — and, when this turn's refresh wrote files,
+//            which ones, because a generated-and-tracked file is what makes `git pull --ff-only` abort
+//            with a success-shaped last line. It reports it; it never unblocks it.
 //   SPEAKS · a local branch with NO UPSTREAM — EVERY local branch, keyed on its tip, so each commit
 //            onto an unpushed branch restates it once. This is the DECEPTIVE failure: work that looks
 //            finished because it is committed, but exists on one machine and nowhere else. It is this
@@ -322,8 +325,12 @@ function readRefs(MAIN) {
       continue;
     }
     if (!refname.startsWith('refs/heads/')) continue;
+    // BOTH HALVES OF THE TRACK STRING. `%(upstream:track,nobracket)` renders as `ahead 3`,
+    // `behind 6`, or `ahead 3, behind 6`, and the second half used to be parsed and thrown away —
+    // so a clone sitting behind its upstream produced silence from the one hook that reads this.
     const m = /(?:^|,\s*)ahead (\d+)/.exec(track || '');
-    locals.push({ name: refname.slice(11), sha, upstream: upstream || '', ahead: m ? m[1] : '' });
+    const mb = /(?:^|,\s*)behind (\d+)/.exec(track || '');
+    locals.push({ name: refname.slice(11), sha, upstream: upstream || '', ahead: m ? m[1] : '', behind: mb ? mb[1] : '' });
   }
   return { locals, remotes, remoteRefs };
 }
@@ -661,6 +668,9 @@ function main(data, R, D) {
   //   IN-FLIGHT NOW SOFTENS THE WORDING AND NEVER THE EXISTENCE. A live builder's branch is expected
   // to be unpushed. That is a reason to say it gently; it is not a reason not to say it.
   const inFlightBranches = new Set(cos.filter((c) => c.branch && inFlight.has(c.path)).map((c) => c.branch));
+  // BEHIND IS COLLECTED HERE AND SPOKEN LATER, after the refresh has run, because the sentence names
+  // the files THIS TURN's refresh wrote and that list does not exist yet at this point in the run.
+  const behind = [];
   for (const b of refs.locals) {
     if (b.ahead) {
       say('ahead:' + b.name, b.ahead + '|' + b.upstream,
@@ -669,6 +679,8 @@ function main(data, R, D) {
     } else {
       resolved.add('ahead:' + b.name);                   // the branch is here, and it is not ahead
     }
+    if (b.behind) behind.push(b);
+    else resolved.add('behind:' + b.name);               // the branch is here, and it is not behind
     const key = 'noupstream:' + b.name;
     if (b.upstream) { resolved.add(key); continue; }     // it has one: re-evaluated, and false
     if (!refs.remoteRefs) {
@@ -732,6 +744,48 @@ function main(data, R, D) {
       'file(s) the refresh could not write', true);
   } else {
     resolved.add('refresh-blocked');                       // tried again this turn, and it worked
+  }
+
+  // ---- BEHIND ITS UPSTREAM, from the same cached tracking refs the `ahead` lines above are read
+  // from. Same source, same staleness, same "vs last fetch" ending, and NO FETCH: this hook has never
+  // touched the network and this line does not start.
+  //
+  // WHY IT NAMES THIS TURN'S WRITES. `state.md` and `roadmap.md` are generated locally every turn AND
+  // tracked in git, so the refresh above routinely leaves a modified file that `git pull --ff-only`
+  // refuses to overwrite — measured on 2026-08-14: the pull exits 1, prints `Updating <a>..<b>` to
+  // stdout and the abort to stderr, HEAD does not move, and nothing says so again. Naming the files
+  // changes the reader's remedy from "resolve a conflict" to "discard a machine-written block", which
+  // is what both field incidents actually did. ONLY the files this run wrote are named: `ref.wrote` is
+  // that run's own list, and no other dirt in the tree is claimed or implied.
+  //
+  // IT REPORTS AND STOPS. Nothing here stashes, discards, checks out, pulls or fetches — CONDUCTOR.md,
+  // "it informs, it never blocks and it never decides". The file it would be discarding to unblock a
+  // pull carries the human region this machinery exists to protect.
+  for (const b of behind) {
+    // IT CLAIMS THE BLOCK, NEVER THE FILE. The clause used to end "so discarding those changes loses
+    // nothing the next glance does not write again", and "those changes" reads as the named files'
+    // whole working-tree diff — which this hook has NOT observed. The human region (Decisions, Issues,
+    // Acceptance criteria) lives in the SAME file, outside the facts markers, and a reader who follows
+    // that to `git checkout -- <file>` loses their own uncommitted judgment. It is not a corner case:
+    // the facts block is rewritten precisely BECAUSE the judgment hash moved, so the sentence is
+    // likeliest on exactly the turns where a discard destroys something. A generated row names what it
+    // found and never asserts a wider absence, so the claim is scoped to the bytes between the markers
+    // — the only thing this run rendered and compared — and the rest of the diff is left to its owner.
+    const regen = ref.wrote.length
+      ? ' This turn the glance rewrote ' + ref.wrote.slice(0, MAX_LISTED).map((w) => BQ + w + BQ).join(', ')
+        + (ref.wrote.length > MAX_LISTED ? ' and ' + (ref.wrote.length - MAX_LISTED) + ' more' : '')
+        + '; in each, only the machine-written block between the facts markers changed, and the next'
+        + ' glance regenerates that block identically; the rest of the diff in those files is human'
+        + ' region this hook has not characterised.'
+      : '';
+    // THE SIGNATURE IS THE COUNT AND THE UPSTREAM, AND DELIBERATELY NOT THE WROTE-LIST. Keying on
+    // what was written too was measured restating the same count on the very next turn, because the
+    // turn after a write writes nothing and the key therefore "moved" without the fact moving. The
+    // news is the count; which files are in the way is context on the turn it is said, and the
+    // refresh line names every write on its own account anyway.
+    say('behind:' + b.name, b.behind + '|' + b.upstream,
+      BQ + b.name + BQ + ' is ' + b.behind + ' commit(s) behind ' + BQ + b.upstream + BQ + ', vs last fetch. git pull --ff-only' + regen,
+      BQ + b.name + BQ + ' behind ' + BQ + b.upstream + BQ, true);
   }
 
   // ---- the human-region nag. The machine detects; the conductor writes; the owner is never asked.
