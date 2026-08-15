@@ -10,22 +10,22 @@
      reorders or rewrites it, never reads it as an instruction, and NEVER ticks an acceptance
      criterion. Do not hand-edit inside the markers: the next run overwrites it. -->
 
-**Verified 2026-08-15T00:07:40.854Z** by `node .claude/hooks/stop-glance.mjs`. Every line below is a command's output or a file that exists — re-derived locally at the end of a turn, with no network call. `node .claude/scripts/session-end.mjs` is the verifier and rewrites this block whole.
+**Verified 2026-08-15T00:57:37.463Z** by `node .claude/hooks/stop-glance.mjs`. Every line below is a command's output or a file that exists — re-derived locally at the end of a turn, with no network call. `node .claude/scripts/session-end.mjs` is the verifier and rewrites this block whole.
 
 - feature: `instruction-freshness`
 - folder: `.conducted/work/instruction-freshness/`
 - documents: problem.md · solution.md
 - derived status: `development`   ·   roadmap says: `development`
 - branches:
-  - `instruction-freshness` @ `be4dd2fc` (local+origin)
+  - `instruction-freshness` @ `b34a3497` (local+origin)
 - worktrees:
   - `worktrees/instruction-freshness` -> C:/code/repos/conducted-lite/worktrees/instruction-freshness
 - PR: none declared (to declare one, put `PR: #<n>` or the pull-request URL on a LINE OF ITS OWN below the markers — a mention inside a sentence is not a declaration)
 - session log (most recent, bounded):
   - `2026-08-12T14:42:52.686Z` session `scaffold` — folder and state.md created by .claude/scripts/session-end.mjs --new-feature
-<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTVUMDA6MDc6NDAuODU0WiIsInN0YXR1cyI6ImRldmVsb3BtZW50IiwiYnJhbmNoZXMiOlsiaW5zdHJ1Y3Rpb24tZnJlc2huZXNzIl0sIndvcmt0cmVlcyI6WyJ3b3JrdHJlZXMvaW5zdHJ1Y3Rpb24tZnJlc2huZXNzIl0sInByIjoiIn0= -->
+<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTVUMDA6NTc6MzcuNDYzWiIsInN0YXR1cyI6ImRldmVsb3BtZW50IiwiYnJhbmNoZXMiOlsiaW5zdHJ1Y3Rpb24tZnJlc2huZXNzIl0sIndvcmt0cmVlcyI6WyJ3b3JrdHJlZXMvaW5zdHJ1Y3Rpb24tZnJlc2huZXNzIl0sInByIjoiIn0= -->
 <!-- conducted-lite:sessions W3siYXQiOiIyMDI2LTA4LTEyVDE0OjQyOjUyLjY4NloiLCJpZCI6InNjYWZmb2xkIiwibm90ZSI6ImZvbGRlciBhbmQgc3RhdGUubWQgY3JlYXRlZCBieSAuY2xhdWRlL3NjcmlwdHMvc2Vzc2lvbi1lbmQubWpzIC0tbmV3LWZlYXR1cmUifV0= -->
-<!-- conducted-lite:judgment sha=f44815a0b9bb7e01 at=2026-08-15T00:04:42.724Z -->
+<!-- conducted-lite:judgment sha=12a7300bdb70dd00 at=2026-08-15T00:57:37.463Z -->
 <!-- conducted-lite:facts:end -->
 
 ## Decisions
@@ -71,12 +71,9 @@ line in CONDUCTOR.md, the law, and criterion 3 should be read that way. His word
 
 <!-- What is wrong or unresolved right now. Delete an issue when it is gone, never strike it out. -->
 
-**Open — the quiet test is the real acceptance.** Replay miq's 275-line instruction file and this
-repo's own `CLAUDE.md` through the write-time check. If the flags produce findings a human
-dismisses, the design is wrong and no amount of tuning the wording fixes it.
-
-**Open — the standard needs the owner's word before it is numbered.** `solution.md` proposes it for
-`standards.md`; a standard is his lane's contract with the output. Bring him the line, not an essay.
+**Open — the standard needs the owner's word before it lands.** The line — *a standing instruction
+carries law and pointers, never a mutable fact* — would land dated in CONDUCTOR.md; `standards.md`
+left the picture by his 2026-08-15 restatement. Bring him the line, not an essay.
 
 ## Acceptance criteria
 
@@ -86,7 +83,7 @@ dismisses, the design is wrong and no amount of tuning the wording fixes it.
       write, with the path quoted — and the write is never blocked.
 - [ ] A write carrying a backticked or path-shaped token the repo cannot find is flagged the same
       way, naming what was searched and what was not found.
-- [ ] The standard lands as a numbered line in `standards.md`, citing both field incidents.
+- [ ] The standard lands as a dated line in CONDUCTOR.md, citing both field incidents.
 - [ ] Session start costs exactly what it costs now: nothing from this feature runs there.
 - [ ] The quiet test: replaying miq's 275-line instruction file and this repo's own `CLAUDE.md`
       through the write-time check produces no finding a human then has to dismiss.

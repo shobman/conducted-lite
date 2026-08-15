@@ -32,21 +32,20 @@
 - A machine that names a fact should stop short of prescribing a remedy it has not checked applies. Three routes to this in one evaluation of the behind-ness line: a diverged branch told `git pull --ff-only`, which cannot work; a detached HEAD told the same; and a discard advised as lossless while the human region of the same file was uncommitted. Each finding was true and separately graded MEDIUM, MEDIUM, HIGH — the shape is only visible across all three. Cheapest form: the glance names the state and the file, and offers a remedy only when it has observed the state the remedy needs. Observed 2026-08-14.
 - The law reaches the agent through a file conducted does not own, and nothing detects its loss. `CLAUDE.md`'s two pointer lines are the only thing that makes an agent read `CONDUCTOR.md` — the hooks use the page's EXISTENCE as a detector (`if (!existsSync(CONDUCTOR_REL)) quiet()`) and never instruct anyone to read it. So a repo that rewrites its `CLAUDE.md` keeps every hook running perfectly, loses the doctrine entirely, and no check fires because each hook's own detector is still satisfied. Design agreed 2026-08-14, for a later build: KEEP the `CLAUDE.md` pointer (it costs nothing and it is the only thing that survives compaction in the system prompt) AND inject the law from hooks at three events — `SessionStart`, `SubagentStart` and `PostCompact`. Three gaps that shaped it: hook output is a conversation message and can be compacted away where `CLAUDE.md` persists; SessionStart fires for the main session only, so a dispatched builder or evaluator would get no route to the law at all; and `/clear` and resume need confirming as SessionStart triggers, which is unmeasured. Open choice: inject a POINTER or the PAGE ITSELF — the page removes the last place compliance can quietly fail, at about 170 lines of context per agent. The upgrade entry for it would be the first that edits a repo's own `CLAUDE.md`, and it should REMOVE conducted's lines only if the injection lands first.
 - The human-region nag fires per feature and becomes wallpaper in bulk. bookjob's first turn after adopting the behind-ness entry emitted TWELVE `<feature> moved this turn; its Decisions/Issues did not` lines in one block — every one for an already-complete, about-to-be-archived feature whose facts block the glance itself had just refreshed. Nothing was decided about any of them, so there was nothing to write; the nag was correct about each and useless about all. This is precisely the failure the glance's own doctrine names — "a message that is always there is wallpaper, read once and then never again including on the turn it finally matters". Cheapest forms: do not nag a feature whose derived or declared status is `complete`; and where more than N features nag in one turn, say it once with a count rather than once per feature. Observed 2026-08-14 in a second deployment, on the turn the machinery it ships with was adopted.
+- A repo without a vision is told so at session start: VISION.md must exist and end in a falsifiable win. The check asks with its evidence and writes nothing — the vision is the owner's and can change at any time. Owner, 2026-08-15.
+- An archive row is stamped at close with the PR and merge commit that made it law — the work item dies at ship and mining starts from the code. Owner, 2026-08-15.
+- standards.md may leave the doctrine: the code is the law of what the system does, and a standards file that grows endlessly is an event log wearing a rulebook's name (mukfork: 1,394 lines in 14 days; the owner's own Memento standards contradict each other, noted there 2026-08-06). An owner's taste file is cited when it exists, required never. Owner leaning 2026-08-15, final word pending.
 - The gate ladder has rungs above the estate floor (gates + owner-verify + auto-merge, applied to 16 repos 2026-08-13). Each rung is one more required check, so adoption is a workflow plus one ruleset edit: a coverage floor that only ratchets up; brief-conformance as CI — a fresh-context agent answers "does this diff do what the brief said" and fails otherwise; build evidence in the PR — screenshots of the changed surface beside the OWNER box so the tick is informed. Admission test for any rung: watch it fail first (the "control that has never failed" line above is the same law).
 
 ## new
 
 ## accepted
 
-- [instruction-freshness](work/instruction-freshness/) — problem.md, solution.md
-
 ## refined
 
 ## development
 
-## complete
+- [instruction-freshness](work/instruction-freshness/) — problem.md, solution.md · branch `instruction-freshness` (local+origin) · worktree `worktrees/instruction-freshness`
 
-- [guard-false-positives](work/guard-false-positives/) — tech-design.md
-- [nag-becomes-wallpaper](work/nag-becomes-wallpaper/) — tech-design.md · merged to main 2026-08-14
-- [pull-blocked-by-machine-facts](work/pull-blocked-by-machine-facts/) — tech-design.md
+## complete
 <!-- conducted-lite:ledger:end -->
