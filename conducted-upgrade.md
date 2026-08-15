@@ -580,3 +580,89 @@ an **archived-but-live** feature — in `archive.md` and still holding a branch 
 silent to the per-turn nag entirely. The fact is not lost; `session-start` reports `archived-but-live`
 once a session with its evidence. Closing it means asking "archived AND not live", which adds a
 condition for a case nobody has hit.
+
+## 2026-08-15 — standards.md leaves the doctrine (LAW)
+
+**WHY.** A rules file that is *meant to grow* becomes an event log wearing a rulebook's name.
+mukfork's reached **1,394 lines in 14 days**; the owner's own long-lived standards notes had by then
+started contradicting each other, noted 2026-08-06. Meanwhile the code cannot drift from itself — it
+is the law of what the system does, and a settled taste is visible in what shipped. So the doctrine
+keeps no standards organ: an owner's taste file is cited when it exists, required never. Owner
+ruling, 2026-08-15, landed canonically in commit `e0b2042`.
+
+**DETECT.** Any one of these means the entry is needed:
+
+- the local `.conducted/CONDUCTOR.md` still carries a `standards.md` row in its documents table;
+- that page still says **"the standards"** in the conductor paragraph (*"You hold the why, the state
+  and the standards"*), in the loop's step-1 read list, or in the evaluator line of loop step 4;
+- the local `CLAUDE.md` still carries the paragraph opening *"What we produce:
+  `.conducted/standards.md`"*.
+
+**FETCH**, raw from `main`:
+
+    https://raw.githubusercontent.com/shobman/conducted-lite/main/.conducted/CONDUCTOR.md
+    https://raw.githubusercontent.com/shobman/conducted-lite/main/CLAUDE.md
+
+**APPLY** — your own hand; this is a LAW entry, and the guard permits the conductor both
+`.conducted/**` and `CLAUDE.md`. Port each edit, merging and never overwriting; substitute the local
+owner's name wherever the canonical text names one.
+
+1. The opening constitution sentence: an overflowing page belongs in *"a hook, the code, or the
+   bin"* — the word **standard** leaves that list.
+2. The conductor paragraph: *"You hold the why and the state"* — the standards leave the things you
+   hold.
+3. The owner paragraph: *"His settled technical taste is visible in the code that shipped — match
+   it, don't re-argue it"*, replacing the sentence that sent you to the standards to cite them.
+4. Delete the documents-table row for `standards.md`, and port the paragraph the canonical page now
+   carries immediately after that table:
+
+   > **There is no standards file (owner ruling, 2026-08-15).** Shipped code is the law of what the
+   > system does; a rules file that grows becomes an event log wearing a rulebook's name, and the
+   > field proved it. An owner's own taste notes are cited when they exist, required never.
+
+5. Loop step 1: the read list becomes *"this file, `roadmap.md` and the `state.md` of whatever is in
+   flight"*. Loop step 4: the evaluator *"judges the behaviour against the `so that`"* — and not
+   against the standards.
+6. `CLAUDE.md`: replace the *"What we produce"* paragraph with the canonical one, keeping the
+   paragraphs either side of it as you found them:
+
+   > What the software does: the code. Once a change ships it is the law of behaviour; the work that
+   > built it is archived for mining, never operated from.
+
+7. **THE LOCAL `standards.md` FILE IS NEVER DELETED BY YOU.** It is the owner's document, and this
+   entry retires a doctrine role, not a file. What you do instead is look at it, report which of
+   three cases you found, and ask — informing, never deciding. The three known deployments today are
+   one of each:
+
+   - **(a) an untouched scaffold** — the `<!-- Delete this scaffold` comment is still in it, so
+     nothing of the owner's is in it either. Offer deletion and take his word. *(bookjob.)*
+   - **(b) live distilled rules** — short, and someone wrote them. Keep the file, as the project's
+     OWN taste notes; briefs may cite it whenever the owner wants them to. It is simply no longer a
+     doctrine organ, and nothing else about it changes. *(miq, 97 lines.)*
+   - **(c) grown into an event log** — rules averaging paragraphs, amendment logs inline, the shape
+     this ruling is about. Suggest archiving it for mining and distilling anything still load-bearing
+     into a short taste note. Owner's word, and it is his to refuse. *(mukfork, 1,394 lines.)*
+
+   The canonical repo deleted its own `.conducted/standards.md` in `e0b2042` because it was case
+   (a) and the owner said so. **That is not part of this entry**, and a repo that reads the canonical
+   diff as an instruction to delete has destroyed something that was never doctrine's to take.
+
+**NOTE ON THE CONSTITUTION.** This entry evicts and adds nothing net — the law page comes out
+shorter than it went in.
+
+**SELF-CHECK, must pass before commit**, from the local repo root:
+
+1. `grep -c "standards.md" .conducted/CONDUCTOR.md` prints `0`, and
+   `grep -c "There is no standards file" .conducted/CONDUCTOR.md` prints at least `1`.
+2. `grep -c "What we produce" CLAUDE.md` prints `0`, and the file still has its `CONDUCTOR.md`
+   paragraph above and its `roadmap.md` paragraph below — a run that lost either has overwritten
+   rather than merged.
+3. `git status --short .conducted/standards.md` shows **no deletion** unless the owner said the word
+   in this session. The file is his; step 7 asks, it does not act.
+
+A failing self-check is a stop-and-report: revert nothing, the working tree diff is the report.
+
+**ADOPT**, from this turn on: brief builders and evaluators against the shipped code and the `so
+that`, never against a numbered rule; when you need to know what the system does, read what runs. If
+the repo keeps a taste file under case (b), cite it when the owner wants it cited and never because
+a role expects one.

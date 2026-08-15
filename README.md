@@ -34,7 +34,6 @@ Everything lives in `.conducted/`. Write only what the work needs.
 .conducted/
   CONDUCTOR.md      the whole operating law, one page
   VISION.md         what winning looks like
-  standards.md      the rules this project is held to, numbered. This one grows
   roadmap.md        a ledger. Its headings ARE the status
   archive.md        where finished work goes so the roadmap stays forward looking
   work/<feature>/   problem.md · solution.md · tech-design.md · state.md
