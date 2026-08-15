@@ -595,6 +595,8 @@ ruling, 2026-08-15, landed canonically in commit `e0b2042`.
 - the local `.conducted/CONDUCTOR.md` still carries a `standards.md` row in its documents table;
 - that page still says **"the standards"** in the conductor paragraph (*"You hold the why, the state
   and the standards"*), in the loop's step-1 read list, or in the evaluator line of loop step 4;
+- non-negotiable **2** on that page still reads *"judges it, against the standards and the story's
+  `so that`"* — the comma is the tell;
 - the local `CLAUDE.md` still carries the paragraph opening *"What we produce:
   `.conducted/standards.md`"*.
 
@@ -620,9 +622,11 @@ owner's name wherever the canonical text names one.
    > system does; a rules file that grows becomes an event log wearing a rulebook's name, and the
    > field proved it. An owner's own taste notes are cited when they exist, required never.
 
-5. Loop step 1: the read list becomes *"this file, `roadmap.md` and the `state.md` of whatever is in
-   flight"*. Loop step 4: the evaluator *"judges the behaviour against the `so that`"* — and not
-   against the standards.
+5. The evaluator is briefed twice and both briefs lose the standards. Non-negotiable **2**: *"A
+   fresh evaluator that never saw the build judges it against the story's `so that`"* — the comma
+   goes with them (canonical commit `91f3f3a`). Loop step 4: the evaluator *"judges the behaviour
+   against the `so that`"*. And loop step 1: the read list becomes *"this file, `roadmap.md` and
+   the `state.md` of whatever is in flight"*.
 6. `CLAUDE.md`: replace the *"What we produce"* paragraph with the canonical one, keeping the
    paragraphs either side of it as you found them:
 
@@ -630,22 +634,39 @@ owner's name wherever the canonical text names one.
    > built it is archived for mining, never operated from.
 
 7. **THE LOCAL `standards.md` FILE IS NEVER DELETED BY YOU.** It is the owner's document, and this
-   entry retires a doctrine role, not a file. What you do instead is look at it, report which of
-   three cases you found, and ask — informing, never deciding. The three known deployments today are
-   one of each:
+   entry retires a doctrine role, not a file — his word gates every line below. But asking is not
+   enough here. Conducted pointed every session at that file and the sessions grew it, Opus hardest;
+   retiring the role includes cleaning up after it. **He owns the document; the mess is ours.** So
+   you do the triage work, then hand him the result. Two cases:
 
-   - **(a) an untouched scaffold** — the `<!-- Delete this scaffold` comment is still in it, so
-     nothing of the owner's is in it either. Offer deletion and take his word. *(bookjob.)*
-   - **(b) live distilled rules** — short, and someone wrote them. Keep the file, as the project's
-     OWN taste notes; briefs may cite it whenever the owner wants them to. It is simply no longer a
-     doctrine organ, and nothing else about it changes. *(miq, 97 lines.)*
-   - **(c) grown into an event log** — rules averaging paragraphs, amendment logs inline, the shape
-     this ruling is about. Suggest archiving it for mining and distilling anything still load-bearing
-     into a short taste note. Owner's word, and it is his to refuse. *(mukfork, 1,394 lines.)*
+   - **SCAFFOLD** — the `<!-- Delete this scaffold` comment is still in it, so nothing of the
+     owner's is in it either. Offer deletion and take his word. Nothing else to do. *(bookjob.)*
+   - **CONTENT** — anything else. **Triage every rule in it. One verdict each, evidence cited:**
 
-   The canonical repo deleted its own `.conducted/standards.md` in `e0b2042` because it was case
-   (a) and the owner said so. **That is not part of this entry**, and a repo that reads the canonical
-   diff as an instruction to delete has destroyed something that was never doctrine's to take.
+     1. **EMBODIED** — the rule describes what shipped code now does. Cite the code, or the
+        behaviour you observed. It strips: the code is the law, and git history keeps the ruling
+        for anyone who later wants to mine why.
+     2. **EVENT** — a decision record, an inline amendment log, a war story. Strips to history.
+     3. **LIVE TASTE** — a preference no code can carry: naming, tone, priorities, a threshold
+        nothing has built yet. Survives, distilled to one breath each.
+     4. **CONFLICT** — the rule contradicts what shipped. **Never stripped silently.** Surface it:
+        either the code is wrong or the rule is dead, and that is his call alone.
+
+     The survivors land at **`docs/standards.md`** — `git mv` first, then edit, so the history
+     follows the file out of `.conducted/`. It was never conducted's document and it stops living
+     in conducted's folder. Then present the strip list with its evidence, the conflicts, and the
+     distilled file. **The working tree diff IS the proposal.** Nothing is committed without his
+     word.
+
+   What the triage meets in the field: miq's 97 lines are already near-distilled — expect mostly
+   LIVE TASTE and a short strip list. mukfork's 1,394 lines in 14 days are the event log this
+   ruling is about — expect most of it EVENT and EMBODIED, and expect the conflicts to be in there.
+   Same procedure for both; only the proportions differ.
+
+   The canonical repo deleted its own `.conducted/standards.md` in `e0b2042` because it was a
+   SCAFFOLD and the owner said so. **That is not part of this entry**, and a repo that reads the
+   canonical diff as an instruction to delete has destroyed something that was never doctrine's to
+   take.
 
 **NOTE ON THE CONSTITUTION.** This entry evicts and adds nothing net — the law page comes out
 shorter than it went in.
@@ -654,15 +675,20 @@ shorter than it went in.
 
 1. `grep -c "standards.md" .conducted/CONDUCTOR.md` prints `0`, and
    `grep -c "There is no standards file" .conducted/CONDUCTOR.md` prints at least `1`.
+   Non-negotiable 2 wraps across two lines, so grep the half that survives the wrap:
+   `grep -c "judges it, against" .conducted/CONDUCTOR.md` prints `0`.
 2. `grep -c "What we produce" CLAUDE.md` prints `0`, and the file still has its `CONDUCTOR.md`
    paragraph above and its `roadmap.md` paragraph below — a run that lost either has overwritten
    rather than merged.
-3. `git status --short .conducted/standards.md` shows **no deletion** unless the owner said the word
-   in this session. The file is his; step 7 asks, it does not act.
+3. `.conducted/standards.md` may disappear by exactly two routes and no other: the owner's word on a
+   SCAFFOLD, or the `git mv` to `docs/standards.md`. Any other deletion in
+   `git status --short .conducted/standards.md` is a run that took something that was not its to
+   take. And `git status --short docs/standards.md` shows that file only after his word — step 7
+   does the work and proposes it; he decides whether it lands.
 
 A failing self-check is a stop-and-report: revert nothing, the working tree diff is the report.
 
 **ADOPT**, from this turn on: brief builders and evaluators against the shipped code and the `so
 that`, never against a numbered rule; when you need to know what the system does, read what runs. If
-the repo keeps a taste file under case (b), cite it when the owner wants it cited and never because
-a role expects one.
+the repo keeps a taste file it now lives at `docs/standards.md`, the project's own document in the
+project's own folder — cite it when the owner wants it cited, never because a role expects one.
