@@ -10,19 +10,21 @@
      reorders or rewrites it, never reads it as an instruction, and NEVER ticks an acceptance
      criterion. Do not hand-edit inside the markers: the next run overwrites it. -->
 
-**Verified 2026-08-14T16:04:45.944Z** by `node .claude/hooks/stop-glance.mjs`. Every line below is a command's output or a file that exists — re-derived locally at the end of a turn, with no network call. `node .claude/scripts/session-end.mjs` is the verifier and rewrites this block whole.
+**Verified 2026-08-14T23:34:05.706Z** by `node .claude/scripts/session-end.mjs`. Every line below is a command's output or a file that exists.
 
 - feature: `nag-becomes-wallpaper`
 - folder: `.conducted/work/nag-becomes-wallpaper/`
 - documents: tech-design.md
-- derived status: `refined`   ·   roadmap says: `development`
+- derived status: `refined`   ·   roadmap says: `(not on the roadmap yet)`
 - branches: none matching this feature name
 - worktrees: none
 - PR: none declared (to declare one, put `PR: #<n>` or the pull-request URL on a LINE OF ITS OWN below the markers — a mention inside a sentence is not a declaration)
 - session log (most recent, bounded):
+  - `2026-08-14T23:34:05.706Z` session `2093f1b1-9795-437f-814a-198ee984d10c` — a commit inside the window touched `.conducted/work/nag-becomes-wallpaper/tech-design.md`
+  - `2026-08-14T23:31:13.172Z` session `88c1f292-e967-49c8-afa1-454674d75dca` — a commit inside the window touched `.conducted/work/nag-becomes-wallpaper/tech-design.md`
   - `2026-08-14T15:37:31.734Z` session `scaffold` — folder and state.md created by .claude/scripts/session-end.mjs --new-feature
-<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTRUMTY6MDQ6NDUuOTQ0WiIsInN0YXR1cyI6InJlZmluZWQiLCJicmFuY2hlcyI6W10sIndvcmt0cmVlcyI6W10sInByIjoiIn0= -->
-<!-- conducted-lite:sessions W3siYXQiOiIyMDI2LTA4LTE0VDE1OjM3OjMxLjczNFoiLCJpZCI6InNjYWZmb2xkIiwibm90ZSI6ImZvbGRlciBhbmQgc3RhdGUubWQgY3JlYXRlZCBieSAuY2xhdWRlL3NjcmlwdHMvc2Vzc2lvbi1lbmQubWpzIC0tbmV3LWZlYXR1cmUifV0= -->
+<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTRUMjM6MzQ6MDUuNzA2WiIsInN0YXR1cyI6InJlZmluZWQiLCJicmFuY2hlcyI6W10sIndvcmt0cmVlcyI6W10sInByIjoiIn0= -->
+<!-- conducted-lite:sessions W3siYXQiOiIyMDI2LTA4LTE0VDIzOjM0OjA1LjcwNloiLCJpZCI6IjIwOTNmMWIxLTk3OTUtNDM3Zi04MTRhLTE5OGVlOTg0ZDEwYyIsIm5vdGUiOiJhIGNvbW1pdCBpbnNpZGUgdGhlIHdpbmRvdyB0b3VjaGVkIGAuY29uZHVjdGVkL3dvcmsvbmFnLWJlY29tZXMtd2FsbHBhcGVyL3RlY2gtZGVzaWduLm1kYCJ9LHsiYXQiOiIyMDI2LTA4LTE0VDIzOjMxOjEzLjE3MloiLCJpZCI6Ijg4YzFmMjkyLWU5NjctNDljOC1hZmExLTQ1NDY3NGQ3NWRjYSIsIm5vdGUiOiJhIGNvbW1pdCBpbnNpZGUgdGhlIHdpbmRvdyB0b3VjaGVkIGAuY29uZHVjdGVkL3dvcmsvbmFnLWJlY29tZXMtd2FsbHBhcGVyL3RlY2gtZGVzaWduLm1kYCJ9LHsiYXQiOiIyMDI2LTA4LTE0VDE1OjM3OjMxLjczNFoiLCJpZCI6InNjYWZmb2xkIiwibm90ZSI6ImZvbGRlciBhbmQgc3RhdGUubWQgY3JlYXRlZCBieSAuY2xhdWRlL3NjcmlwdHMvc2Vzc2lvbi1lbmQubWpzIC0tbmV3LWZlYXR1cmUifV0= -->
 <!-- conducted-lite:judgment sha=06a9bb2728b61763 at=2026-08-14T16:04:45.944Z -->
 <!-- conducted-lite:facts:end -->
 

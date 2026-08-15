@@ -44,7 +44,7 @@
 
 ## development
 
-- [instruction-freshness](work/instruction-freshness/) — problem.md, solution.md · branch `instruction-freshness` (local+origin) · worktree `worktrees/instruction-freshness`
+- [instruction-freshness](work/instruction-freshness/) — problem.md, solution.md
 
 ## complete
 <!-- conducted-lite:ledger:end -->

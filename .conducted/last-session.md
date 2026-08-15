@@ -7,22 +7,26 @@
      fact that has no per-feature home. It is written by temp-file-and-rename, so a kill leaves
      the whole previous file rather than half of this one. -->
 
-**Verified 2026-08-14T11:21:58.163Z** by `node .claude/scripts/session-end.mjs`. Every line below is a command's output.
+**Verified 2026-08-14T23:34:05.706Z** by `node .claude/scripts/session-end.mjs`. Every line below is a command's output.
 
-- **how this run came about: UNCLASSIFIED** (`other`) — the SessionEnd hook reported reason `other`, which this script does not classify as either an ending or a context boundary. Recorded verbatim rather than guessed at: this record claims NOTHING about whether the work finished.
+- **how this run came about: BOUNDARY** (`clear`) — a CONTEXT BOUNDARY, not an ending — the context was cleared and the work continues in a fresh one. NOTHING in this record says the work finished.
   _SessionEnd is BEST-EFFORT: a closed terminal, a crash or a kill fires nothing at all, so the ABSENCE of a record proves nothing. Everything in it is re-derivable from git by `node .claude/scripts/session-start.mjs`._
 
-- branch: `main` @ `726ca15`
+- branch: `main` @ `a3c0ad7`
 - recent commits:
-  - `726ca15 idea: a generated row names what it found, it never asserts a wider absence`
-  - `6673988 idea: the gate ladder above the estate floor, one required check per rung`
-  - `f7949b3 ci: adopt the estate-standard owner-verify gate (OWNER: checkboxes hold auto-merge)`
+  - `a3c0ad7 nag-becomes-wallpaper is complete`
+  - `12cf9f3 ledger: the nag never speaks about a finished feature`
+  - `8e63a57 the nag never speaks about a finished feature`
 - dirty: none
 - accounted-for (named, not hidden):
+  - (main checkout):  M .conducted/archive.md  (WRITTEN BY `node .claude/scripts/session-start.mjs` earlier in this session) — git add .conducted/archive.md && git commit -m "conducted: state"
+  - (main checkout):  M .conducted/last-session.md  (WRITTEN BY THIS SCRIPT just now) — git add .conducted/last-session.md && git commit -m "conducted: state"
+  - (main checkout):  M .conducted/roadmap.md  (WRITTEN BY `node .claude/scripts/session-start.mjs` earlier in this session) — git add .conducted/roadmap.md && git commit -m "conducted: state"
   - (main checkout):  M .conducted/work/guard-false-positives/state.md  (WRITTEN BY THIS SCRIPT on an EARLIER run and never committed (this feature is untouched, so this run did not rewrite it)) — git add .conducted/work/guard-false-positives/state.md && git commit -m "conducted: state"
-  - (main checkout): ?? .conducted/last-session.md  (WRITTEN BY THIS SCRIPT just now) — git add .conducted/last-session.md && git commit -m "conducted: state"
+  - (main checkout):  M .conducted/work/nag-becomes-wallpaper/state.md  (WRITTEN BY THIS SCRIPT just now (this feature was touched this session)) — git add .conducted/work/nag-becomes-wallpaper/state.md && git commit -m "conducted: state"
+  - (main checkout):  M .conducted/work/pull-blocked-by-machine-facts/state.md  (WRITTEN BY THIS SCRIPT just now (this feature was touched this session)) — git add .conducted/work/pull-blocked-by-machine-facts/state.md && git commit -m "conducted: state"
 - unpushed: none — every local branch matches its tip on origin
 - worktrees: main checkout only
-- features: 2 total, 0 touched this session
+- features: 4 total, 2 touched this session — `nag-becomes-wallpaper`, `pull-blocked-by-machine-facts`
 - effort: not reported this session (pass `--effort "<note>"`; it is an estimate, never a budget)
 - checks: 1 nothing stranded VERIFIED · 2 nothing unpushed VERIFIED · 3 worktrees reconciled against .conducted/work/ VERIFIED · 4 every TOUCHED feature has a fresh state.md VERIFIED

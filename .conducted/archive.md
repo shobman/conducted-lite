@@ -7,4 +7,10 @@
 
 <!-- conducted-lite:archive:start -->
 
+## 2026-08-14
+
+- [guard-false-positives](work/guard-false-positives/) — tech-design.md
+- [nag-becomes-wallpaper](work/nag-becomes-wallpaper/) — tech-design.md
+- [pull-blocked-by-machine-facts](work/pull-blocked-by-machine-facts/) — tech-design.md
+
 <!-- conducted-lite:archive:end -->

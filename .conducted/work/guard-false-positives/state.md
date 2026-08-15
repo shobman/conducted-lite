@@ -10,19 +10,19 @@
      reorders or rewrites it, never reads it as an instruction, and NEVER ticks an acceptance
      criterion. Do not hand-edit inside the markers: the next run overwrites it. -->
 
-**Verified 2026-08-14T15:32:23.618Z** by `node .claude/hooks/stop-glance.mjs`. Every line below is a command's output or a file that exists — re-derived locally at the end of a turn, with no network call. `node .claude/scripts/session-end.mjs` is the verifier and rewrites this block whole.
+**Verified 2026-08-14T23:31:45.076Z** by `node .claude/hooks/stop-glance.mjs`. Every line below is a command's output or a file that exists — re-derived locally at the end of a turn, with no network call. `node .claude/scripts/session-end.mjs` is the verifier and rewrites this block whole.
 
 - feature: `guard-false-positives`
 - folder: `.conducted/work/guard-false-positives/`
 - documents: tech-design.md
-- derived status: `refined`   ·   roadmap says: `complete`
+- derived status: `refined`   ·   roadmap says: `(not on the roadmap yet)`
 - branches: none matching this feature name
 - worktrees: none
 - PR: #2 — DECLARED by the line "PR: #2" in the human region below. Nothing in git knows about a PR; `node .claude/scripts/session-start.mjs` checks it with one `gh pr list` call and reports UNVERIFIED when gh is not there.
 - session log (most recent, bounded):
   - `2026-08-13T09:50:41.075Z` session `83358833-f099-45a6-9856-ffba65bb04ee` — a commit inside the window touched `.conducted/work/guard-false-positives/tech-design.md`
   - `2026-08-12T14:42:47.034Z` session `scaffold` — folder and state.md created by .claude/scripts/session-end.mjs --new-feature
-<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTRUMTU6MzI6MjMuNjE4WiIsInN0YXR1cyI6InJlZmluZWQiLCJicmFuY2hlcyI6W10sIndvcmt0cmVlcyI6W10sInByIjoiMiJ9 -->
+<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTRUMjM6MzE6NDUuMDc2WiIsInN0YXR1cyI6InJlZmluZWQiLCJicmFuY2hlcyI6W10sIndvcmt0cmVlcyI6W10sInByIjoiMiJ9 -->
 <!-- conducted-lite:sessions W3siYXQiOiIyMDI2LTA4LTEzVDA5OjUwOjQxLjA3NVoiLCJpZCI6IjgzMzU4ODMzLWYwOTktNDVhNi05ODU2LWZmYmE2NWJiMDRlZSIsIm5vdGUiOiJhIGNvbW1pdCBpbnNpZGUgdGhlIHdpbmRvdyB0b3VjaGVkIGAuY29uZHVjdGVkL3dvcmsvZ3VhcmQtZmFsc2UtcG9zaXRpdmVzL3RlY2gtZGVzaWduLm1kYCJ9LHsiYXQiOiIyMDI2LTA4LTEyVDE0OjQyOjQ3LjAzNFoiLCJpZCI6InNjYWZmb2xkIiwibm90ZSI6ImZvbGRlciBhbmQgc3RhdGUubWQgY3JlYXRlZCBieSAuY2xhdWRlL3NjcmlwdHMvc2Vzc2lvbi1lbmQubWpzIC0tbmV3LWZlYXR1cmUifV0= -->
 <!-- conducted-lite:judgment sha=d754ebb70da4cb1d at=2026-08-14T15:32:23.618Z -->
 <!-- conducted-lite:facts:end -->
