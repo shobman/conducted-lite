@@ -505,7 +505,7 @@ for (const f of features) {
     }
   }
 
-  // --- the disagreement the owner asked for, in the sentence he asked for.
+  // --- the disagreement the owner asked for, in the sentence they asked for.
   if (readsComplete(f) && f.place !== 'complete') {
     const ev = [
       ...f.merge.map((m) => `branch \`${m.branch}\` is contained in \`origin/${ctx.def}\``),
@@ -787,8 +787,8 @@ const orientation = [
 process.stdout.write(
   `INSTRUCTION, before anything else: open your first message by telling the owner where things stand,\n` +
   `in your own words, in a few plain lines — what is in development and where it lives, what is ready\n` +
-  `to pick up, how the last session ended. Say it even when nothing is wrong; none of this is on his\n` +
-  `screen. State it, do not turn it into a menu or a question, then wait for him.\n\n` +
+  `to pick up, how the last session ended. Say it even when nothing is wrong; none of this is on their\n` +
+  `screen. State it, do not turn it into a menu or a question, then wait for them.\n\n` +
   orientation + '\n\n' +
   `conducted-lite ${now}\n` +
   `repo ${posix(MAIN)}   default branch ${ctx.def ? '`origin/' + ctx.def + '`' : '(UNKNOWN — no origin/HEAD; merged-checks below are UNVERIFIED)'}\n` +

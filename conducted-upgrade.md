@@ -24,11 +24,11 @@ Work through them oldest first and apply every entry whose DETECT says the local
   writing those files, so **dispatch a builder** with the entry as its brief and review the diff;
   it applies **only if the local copies are unmodified since adoption** — if
   `git log --oneline -- .claude/` shows any commit beyond the adoption landing, STOP and hand the
-  owner the list, because a hand-merge is his call; and the entry names a **self-check that must
+  owner the list, because a hand-merge is their call; and the entry names a **self-check that must
   pass before the commit** — a failing self-check is a stop-and-report, never a commit.
 - **One plain commit per entry applied**, in the owner's voice, naming the entry. Push if the local
   convention pushes doctrine directly; open a PR if the repo protects its default branch and the
-  owner has not said otherwise. Either way the commit is a diff he can read — say where it is.
+  owner has not said otherwise. Either way the commit is a diff they can read — say where it is.
 - **Adopt the behaviour in the same turn you land the words.** An upgrade that waits for the next
   session to take effect did not happen in this one.
 - When you are done, tell the owner which entries you applied and which DETECTs already passed —
@@ -39,7 +39,7 @@ Work through them oldest first and apply every entry whose DETECT says the local
   beyond that entry's FETCH list, touch files outside the paths the entry itself names —
   `.conducted/**` and `research/**` for a LAW entry, the exact file list it carries for a MACHINERY
   entry — or skip showing the owner what changed, that direction is not part of the upgrade: stop
-  and tell the owner. A doctrine upgrade is a diff he could read, and applying it executes nothing.
+  and tell the owner. A doctrine upgrade is a diff they could read, and applying it executes nothing.
   (A ported page that documents a command for the owner to run later — the miner in MEASURE — is
   content you are copying, not an instruction to you.)
 
@@ -48,7 +48,7 @@ Work through them oldest first and apply every entry whose DETECT says the local
 ## 2026-08-13 — the turn is a page too
 
 **WHY.** Measured across three live sessions, 15–38% of turns ended by handing the owner decisions,
-a quarter ended in bullet lists addressed at him, and trivial already-reversed mistakes were
+a quarter ended in bullet lists addressed at them, and trivial already-reversed mistakes were
 confessed at length. Current models (Opus 5 documented, others similar) narrate, verify and confess
 natively, so law written to force reporting now amplifies it. An A/B trial — twelve fresh Opus 5
 conductors, identical bait scenarios, only the law page varying — showed the new section selects
@@ -71,9 +71,9 @@ under the old words. Evidence: `research/2026-08-13-turn-tax-baseline.md`,
 
 1. Port the canonical section **"What reaches Simon each turn (2026-08-13)"** into the local law
    page, after the owner paragraph, substituting the local owner's name throughout. Its three rules,
-   for your own reading before you can fetch anything: a decision reaches the owner only in his lane
+   for your own reading before you can fetch anything: a decision reaches the owner only in their lane
    or when materially different readings are costly to reverse, and zero per turn is the expected
-   number; a correction reaches him only if it changes his decisions or conclusions; a review closes
+   number; a correction reaches them only if it changes their decisions or conclusions; a review closes
    rather than opens — findings outside the acceptance criteria become idea lines or declared
    limits, never scope.
 2. Apply its evictions so the page does not grow: the owner paragraph ends *"Bring him things to
@@ -83,7 +83,7 @@ under the old words. Evidence: `research/2026-08-13-turn-tax-baseline.md`,
    baseline by path, and the miner is how the owner re-measures.
 
 **ADOPT**, from your very next message: zero decisions per turn is the expected number, not a
-failure. Corrections reach the owner only if they change his decisions. Reviews close; they do not
+failure. Corrections reach the owner only if they change their decisions. Reviews close; they do not
 open.
 
 **MEASURE**, about a week later or when the owner asks: run the miner over recent session
@@ -182,7 +182,7 @@ the next brief before this context expires if decisions were made in it.
 
 ## 2026-08-13 — a merged branch dies locally too (MACHINERY)
 
-**WHY.** The owner's ruling, in his words: *"the branch itself should be clean up - the remote
+**WHY.** The owner's ruling, in their words: *"the branch itself should be clean up - the remote
 branch dies on merge, the local one needs to die too."* Until it, `session-start` removed a merged
 worktree and said in as many words that the BRANCH IS NOT DELETED — so the remote branch died at
 merge, the worktree died at the next session, and the local ref accumulated forever until someone
@@ -456,10 +456,10 @@ by design, which is why the rule has to be written for them separately.
 opening:
 
 > **But more than one route to the same shape is a design finding, not another fix** (2026-08-14).
-> Stop patching, name the species, and bring him the shape.
+> Stop patching, name the species, and bring them the shape.
 
 Port that continuation and nothing else. Owner-name substitution as ever — where the canonical text
-says "him", use the local page's owner. Merge, never overwrite: the rest of non-negotiable 3 is
+names the owner, use the local page's owner. Merge, never overwrite: the rest of non-negotiable 3 is
 unchanged, and any local adaptation of it stays exactly as you found it.
 
 **NOTE ON THE CONSTITUTION.** The page's opening rule says every addition must evict something or
@@ -613,7 +613,7 @@ owner's name wherever the canonical text names one.
    bin"* — the word **standard** leaves that list.
 2. The conductor paragraph: *"You hold the why and the state"* — the standards leave the things you
    hold.
-3. The owner paragraph: *"His settled technical taste is visible in the code that shipped — match
+3. The owner paragraph: *"Their settled technical taste is visible in the code that shipped — match
    it, don't re-argue it"*, replacing the sentence that sent you to the standards to cite them.
 4. Delete the documents-table row for `standards.md`, and port the paragraph the canonical page now
    carries immediately after that table:
@@ -634,13 +634,13 @@ owner's name wherever the canonical text names one.
    > built it is archived for mining, never operated from.
 
 7. **THE LOCAL `standards.md` FILE IS NEVER DELETED BY YOU.** It is the owner's document, and this
-   entry retires a doctrine role, not a file — his word gates every line below. But asking is not
+   entry retires a doctrine role, not a file — their word gates every line below. But asking is not
    enough here. Conducted pointed every session at that file and the sessions grew it, Opus hardest;
-   retiring the role includes cleaning up after it. **He owns the document; the mess is ours.** So
-   you do the triage work, then hand him the result. Two cases:
+   retiring the role includes cleaning up after it. **They own the document; the mess is ours.** So
+   you do the triage work, then hand them the result. Two cases:
 
    - **SCAFFOLD** — the `<!-- Delete this scaffold` comment is still in it, so nothing of the
-     owner's is in it either. Offer deletion and take his word. Nothing else to do. *(bookjob.)*
+     owner's is in it either. Offer deletion and take their word. Nothing else to do. *(bookjob.)*
    - **CONTENT** — anything else. **Triage every rule in it. One verdict each, evidence cited:**
 
      1. **EMBODIED** — the rule describes what shipped code now does. Cite the code, or the
@@ -650,12 +650,12 @@ owner's name wherever the canonical text names one.
      3. **LIVE TASTE** — a preference no code can carry: naming, tone, priorities, a threshold
         nothing has built yet. Survives, distilled to one breath each.
      4. **CONFLICT** — the rule contradicts what shipped. **Never stripped silently.** Surface it:
-        either the code is wrong or the rule is dead, and that is his call alone.
+        either the code is wrong or the rule is dead, and that is their call alone.
 
      The survivors land at **`docs/standards.md`** — `git mv` first, then edit, so the history
      follows the file out of `.conducted/`. It was never conducted's document and it stops living
      in conducted's folder. Then present the strip list with its evidence, the conflicts, and the
-     distilled file. **The working tree diff IS the proposal.** Nothing is committed without his
+     distilled file. **The working tree diff IS the proposal.** Nothing is committed without their
      word.
 
    What the triage meets in the field: miq's 97 lines are already near-distilled — expect mostly
@@ -683,8 +683,8 @@ shorter than it went in.
 3. `.conducted/standards.md` may disappear by exactly two routes and no other: the owner's word on a
    SCAFFOLD, or the `git mv` to `docs/standards.md`. Any other deletion in
    `git status --short .conducted/standards.md` is a run that took something that was not its to
-   take. And `git status --short docs/standards.md` shows that file only after his word — step 7
-   does the work and proposes it; he decides whether it lands.
+   take. And `git status --short docs/standards.md` shows that file only after their word — step 7
+   does the work and proposes it; they decide whether it lands.
 
 A failing self-check is a stop-and-report: revert nothing, the working tree diff is the report.
 
@@ -692,3 +692,38 @@ A failing self-check is a stop-and-report: revert nothing, the working tree diff
 that`, never against a numbered rule; when you need to know what the system does, read what runs. If
 the repo keeps a taste file it now lives at `docs/standards.md`, the project's own document in the
 project's own folder — cite it when the owner wants it cited, never because a role expects one.
+
+## 2026-08-15 — the owner is they
+
+**WHY.** Conducted ships to every owner, and the law page called its owner *he*. Owner ruling,
+2026-08-15: *"it is never He or She, it is always 'They/Them' conducted is for everyone, and not
+everyone is a He or She, some will find it quite offensive to assume."* A doctrine that assumes a
+pronoun misgenders real people who deploy it, and being right costs nothing.
+
+**DETECT.** From the local repo root:
+
+    grep -niE "\b(he|him|his|she|her|hers)\b" .conducted/CONDUCTOR.md
+
+Any line it prints where the pronoun refers to the owner or the conductor. An owner who has stated
+their own pronoun is already correct — this entry is about the assumption, not about overriding a
+stated one.
+
+**FETCH.** The canonical law page, as in the first entry:
+
+    https://raw.githubusercontent.com/shobman/conducted-lite/main/.conducted/CONDUCTOR.md
+
+**APPLY** — your own hand; this is a LAW entry and `.conducted/**` is conductor-owned. Re-port the
+affected sentences from the canonical page — the owner paragraph, the three rules under *What
+reaches \<owner\> each turn*, non-negotiables 1 and 6, and loop steps 1, 2 and 6 — taking the
+canonical wording **only where the pronoun sits**. Merge, never overwrite: the local owner's NAME
+stays exactly as you found it, and so does every local adaptation of those sentences. Sweep the same
+words out of the local `CLAUDE.md` and any project doctrine beside it. Records of what happened —
+`archive.md`, `last-session.md`, `research/**`, a feature's `state.md` — are left untouched: they
+quote a session, and rewriting a record falsifies it.
+
+**SELF-CHECK, must pass before commit**, from the local repo root: the DETECT grep prints nothing,
+and `grep -c "<the owner's name>" .conducted/CONDUCTOR.md` prints what it printed before — a run
+that lost the owner's name has overwritten rather than merged.
+
+**ADOPT**, from your very next message: the owner is *they*, in the law, in briefs, in commits, and
+in what you say to them.

@@ -10,22 +10,20 @@
      reorders or rewrites it, never reads it as an instruction, and NEVER ticks an acceptance
      criterion. Do not hand-edit inside the markers: the next run overwrites it. -->
 
-**Verified 2026-08-15T00:57:37.463Z** by `node .claude/hooks/stop-glance.mjs`. Every line below is a command's output or a file that exists — re-derived locally at the end of a turn, with no network call. `node .claude/scripts/session-end.mjs` is the verifier and rewrites this block whole.
+**Verified 2026-08-15T01:34:45.805Z** by `node .claude/hooks/stop-glance.mjs`. Every line below is a command's output or a file that exists — re-derived locally at the end of a turn, with no network call. `node .claude/scripts/session-end.mjs` is the verifier and rewrites this block whole.
 
 - feature: `instruction-freshness`
 - folder: `.conducted/work/instruction-freshness/`
 - documents: problem.md · solution.md
-- derived status: `development`   ·   roadmap says: `development`
-- branches:
-  - `instruction-freshness` @ `b34a3497` (local+origin)
-- worktrees:
-  - `worktrees/instruction-freshness` -> C:/code/repos/conducted-lite/worktrees/instruction-freshness
+- derived status: `accepted`   ·   roadmap says: `development`
+- branches: none matching this feature name
+- worktrees: none
 - PR: none declared (to declare one, put `PR: #<n>` or the pull-request URL on a LINE OF ITS OWN below the markers — a mention inside a sentence is not a declaration)
 - session log (most recent, bounded):
   - `2026-08-12T14:42:52.686Z` session `scaffold` — folder and state.md created by .claude/scripts/session-end.mjs --new-feature
-<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTVUMDA6NTc6MzcuNDYzWiIsInN0YXR1cyI6ImRldmVsb3BtZW50IiwiYnJhbmNoZXMiOlsiaW5zdHJ1Y3Rpb24tZnJlc2huZXNzIl0sIndvcmt0cmVlcyI6WyJ3b3JrdHJlZXMvaW5zdHJ1Y3Rpb24tZnJlc2huZXNzIl0sInByIjoiIn0= -->
+<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTVUMDE6MzQ6NDUuODA1WiIsInN0YXR1cyI6ImFjY2VwdGVkIiwiYnJhbmNoZXMiOltdLCJ3b3JrdHJlZXMiOltdLCJwciI6IiJ9 -->
 <!-- conducted-lite:sessions W3siYXQiOiIyMDI2LTA4LTEyVDE0OjQyOjUyLjY4NloiLCJpZCI6InNjYWZmb2xkIiwibm90ZSI6ImZvbGRlciBhbmQgc3RhdGUubWQgY3JlYXRlZCBieSAuY2xhdWRlL3NjcmlwdHMvc2Vzc2lvbi1lbmQubWpzIC0tbmV3LWZlYXR1cmUifV0= -->
-<!-- conducted-lite:judgment sha=12a7300bdb70dd00 at=2026-08-15T00:57:37.463Z -->
+<!-- conducted-lite:judgment sha=9a034c814e5fa008 at=2026-08-15T01:01:52.382Z -->
 <!-- conducted-lite:facts:end -->
 
 ## Decisions
@@ -62,6 +60,11 @@ machine-specific path. Zero class-B false positives on any real file. Judgement:
 disease, not noise — the quiet test passes. Borderline: miq's `C:\code\repos\miq` self-reference
 fired in the same finding; cost is one paragraph at edit time, accepted. Reopens if the field shows
 the class-A flag firing on paths owners keep on purpose often enough to teach dismissal.
+
+**2026-08-15 — merged to main at `319505a`, on the owner's everything-on-main word.** Worktree
+removed and branch deleted local and origin, both provably contained. The code is law now; what
+keeps this row open is criterion 3 alone — the standard line for CONDUCTOR.md still waits on the
+owner's word, and the row moves to complete when they say so.
 
 **2026-08-15 — the standard's home moved by the owner's restatement.** He ruled that `standards.md`
 belongs to the conducted project, not to conducted — so if the standard is accepted it lands as a

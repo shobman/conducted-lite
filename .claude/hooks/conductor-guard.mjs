@@ -93,7 +93,7 @@
 // leaves `src/app.ts` on disk at size 1, measured. It is folded in norm(), win32-only. And an 8.3
 // SHORT NAME was worse than allowed: this paragraph used to list `C:\PROGRA~1\…` beside the unproven
 // shares as "not folded and therefore allowed", and it was not allowed — `Write CONDUC~1/roadmap.md`
-// DENIED, naming `CONDUC~1/roadmap.md`, the conductor's own roadmap under his own `.conducted/`. The
+// DENIED, naming `CONDUC~1/roadmap.md`, the conductor's own roadmap under their own `.conducted/`. The
 // short name matched no OWNED pattern and the ordinary deny fired; nothing ever reached the "unknown
 // is an allow" the sentence promised. Short names are folded by the FILESYSTEM now — see longName()
 // — and a short name that folds to product code is still denied, by its long name. Nothing is waved
@@ -105,7 +105,7 @@
 // file-writing shapes — redirection, tee, sed/perl -i, cp/mv onto a path, a heredoc or -c/-e fed to
 // an interpreter that then names a file and a write call. EVERY ONE OF THEM ENDS AT THE SAME
 // QUESTION: resolve the target, and is it in the allow-set. The interpreter shape used to stop at
-// the mechanism and never ask, which denied a conductor rewriting his own `state.md` — a shape
+// the mechanism and never ask, which denied a conductor rewriting their own `state.md` — a shape
 // decides WHETHER to look at a path, never stands in for looking at one.
 //
 // AND THE TARGET COMES FROM A POSITION, NEVER FROM A SCAN OF THE LINE. A shape answers two
@@ -374,7 +374,7 @@ const OWNED_SUMMARY = '.conducted/**, research/**, docs/**.md, CLAUDE.md, README
 
 // THE ALLOW-SET IS MATCHED THE WAY THE FILESYSTEM MATCHES NAMES, AND THAT IS PLATFORM-DEPENDENT.
 // On win32, `readme.md` and `README.md` are ONE FILE, so denying the first while allowing the second
-// denies the conductor his own README — measured 2026-08-13: `Write readme.md` and
+// denies the conductor their own README — measured 2026-08-13: `Write readme.md` and
 // `Write .CONDUCTED/roadmap.md` both denied, both literally the conductor's own files, which is the
 // residual false positive this feature exists to kill. Folding case is therefore NOT a widening of
 // the allow-set; it is the same entry reached by the same file's other name. On a case-SENSITIVE
@@ -1256,7 +1256,7 @@ function scanBash(cmd, cwd, root, depth = 0) {
   // THE MECHANISM IS NOT THE VERDICT, THE PATH IS. This branch used to classify on the shape alone
   // and never look at where the script wrote, so a conductor rewriting
   // `.conducted/work/<feature>/state.md` with a Python heredoc was denied by a message that ended by
-  // listing `.conducted/**` as his own. Denying a write to a path the same sentence grants is how a
+  // listing `.conducted/**` as their own. Denying a write to a path the same sentence grants is how a
   // guard loses its authority. Every other branch here resolves a target and checks it against the
   // allow-set; so does this one, through THE SAME classify()/OWNED/relOf trio — no second copy of
   // either, because minted twice is how the two drift apart.

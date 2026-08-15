@@ -660,8 +660,8 @@ export const cases = [
     id: 'B-heredoc-owned',
     group: 'B',
     what: 'a heredoc writing .conducted/** — the header promises this works',
-    why: 'This branch used to deny on the shape alone, which denied a conductor rewriting his own ' +
-      'state.md with a message that ended by listing .conducted/** as his.',
+    why: 'This branch used to deny on the shape alone, which denied a conductor rewriting their own ' +
+      'state.md with a message that ended by listing .conducted/** as theirs.',
     payload: bash('b-heredoc-owned'),
     expect: { decision: 'allow' },
   },
