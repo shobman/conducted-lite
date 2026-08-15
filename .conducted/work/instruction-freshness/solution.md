@@ -72,14 +72,21 @@ Guard-shaped: attached to the write that carries it, said once, and the write pr
 
 - **Blocking.** conductor-guard already intercepts every write and `CLAUDE.md` is on its owned
   list; this rides that interception and only ever attaches words. A blocked write to the briefing
-  page would be the machine deciding what instruction the conductor may keep.
+  page would be the machine deciding what instruction the conductor may keep. **And the check runs
+  in isolation:** no failure in it may change the guard's own allow/deny answer in either
+  direction — a crash that blocked a write would be the flag failing closed, and one that let a
+  deniable write through would disable the security half of the guard, which is worse.
 - **Session-start detectors.** All three from the first draft, for the dated reasons above.
 - **Judging prose.** The token bound is backticks and path-shapes. A sentence is never a finding.
 - **New state.** No cache, no ledger of claims, no allow-list — a flag that fires once at the write
   has nothing to remember.
 - **The residue, named:** a name that moves AFTER it was written, in a file that ignores the
-  standard, is detected by nothing here. The standard shrinks that class toward zero, and the
-  pointer-injection idea already on the roadmap shrinks it further. Declared, not solved.
+  standard, is detected by nothing here. Neither is a write the hook never sees — a hand edit in
+  an editor, a merge, a pull or a checkout that changes `CLAUDE.md` through git itself — and an
+  ignored flag never speaks twice: fire-once with no state means no second chance, which is the
+  price of not being wallpaper. The standard is what covers all of it — a file carrying no mutable
+  fact has nothing for a merge to rot — and the pointer-injection idea already on the roadmap
+  shrinks the rest. Declared, not solved.
 
 ## Acceptance sits in `state.md`
 

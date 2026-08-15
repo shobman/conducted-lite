@@ -10,7 +10,7 @@
      reorders or rewrites it, never reads it as an instruction, and NEVER ticks an acceptance
      criterion. Do not hand-edit inside the markers: the next run overwrites it. -->
 
-**Verified 2026-08-13T06:40:59.327Z** by `node .claude/hooks/stop-glance.mjs`. Every line below is a command's output or a file that exists — re-derived locally at the end of a turn, with no network call. `node .claude/scripts/session-end.mjs` is the verifier and rewrites this block whole.
+**Verified 2026-08-14T23:57:50.714Z** by `node .claude/hooks/stop-glance.mjs`. Every line below is a command's output or a file that exists — re-derived locally at the end of a turn, with no network call. `node .claude/scripts/session-end.mjs` is the verifier and rewrites this block whole.
 
 - feature: `instruction-freshness`
 - folder: `.conducted/work/instruction-freshness/`
@@ -21,9 +21,9 @@
 - PR: none declared (to declare one, put `PR: #<n>` or the pull-request URL on a LINE OF ITS OWN below the markers — a mention inside a sentence is not a declaration)
 - session log (most recent, bounded):
   - `2026-08-12T14:42:52.686Z` session `scaffold` — folder and state.md created by .claude/scripts/session-end.mjs --new-feature
-<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTNUMDY6NDA6NTkuMzI3WiIsInN0YXR1cyI6ImFjY2VwdGVkIiwiYnJhbmNoZXMiOltdLCJ3b3JrdHJlZXMiOltdLCJwciI6IiJ9 -->
+<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTRUMjM6NTc6NTAuNzE0WiIsInN0YXR1cyI6ImFjY2VwdGVkIiwiYnJhbmNoZXMiOltdLCJ3b3JrdHJlZXMiOltdLCJwciI6IiJ9 -->
 <!-- conducted-lite:sessions W3siYXQiOiIyMDI2LTA4LTEyVDE0OjQyOjUyLjY4NloiLCJpZCI6InNjYWZmb2xkIiwibm90ZSI6ImZvbGRlciBhbmQgc3RhdGUubWQgY3JlYXRlZCBieSAuY2xhdWRlL3NjcmlwdHMvc2Vzc2lvbi1lbmQubWpzIC0tbmV3LWZlYXR1cmUifV0= -->
-<!-- conducted-lite:judgment sha=2e5c692d5cd67f48 at=2026-08-13T06:40:59.327Z -->
+<!-- conducted-lite:judgment sha=2f4cf7e7b61a828f at=2026-08-14T23:57:50.714Z -->
 <!-- conducted-lite:facts:end -->
 
 ## Decisions
@@ -72,5 +72,7 @@ dismisses, the design is wrong and no amount of tuning the wording fixes it.
 - [ ] Session start costs exactly what it costs now: nothing from this feature runs there.
 - [ ] The quiet test: replaying miq's 275-line instruction file and this repo's own `CLAUDE.md`
       through the write-time check produces no finding a human then has to dismiss.
-- [ ] It fails open. A guard error, an unreadable tree or malformed content flags nothing and
-      blocks nothing — the write always proceeds.
+- [ ] It fails open, in isolation. A check error, an unreadable tree or malformed content flags
+      nothing and blocks nothing, and no failure in the freshness pass changes the guard's
+      allow/deny answer in either direction — the write the guard would allow always proceeds,
+      and one it would deny is still denied.
