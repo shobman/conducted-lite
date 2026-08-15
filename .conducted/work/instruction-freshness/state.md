@@ -10,20 +10,22 @@
      reorders or rewrites it, never reads it as an instruction, and NEVER ticks an acceptance
      criterion. Do not hand-edit inside the markers: the next run overwrites it. -->
 
-**Verified 2026-08-14T23:57:50.714Z** by `node .claude/hooks/stop-glance.mjs`. Every line below is a command's output or a file that exists — re-derived locally at the end of a turn, with no network call. `node .claude/scripts/session-end.mjs` is the verifier and rewrites this block whole.
+**Verified 2026-08-15T00:07:40.854Z** by `node .claude/hooks/stop-glance.mjs`. Every line below is a command's output or a file that exists — re-derived locally at the end of a turn, with no network call. `node .claude/scripts/session-end.mjs` is the verifier and rewrites this block whole.
 
 - feature: `instruction-freshness`
 - folder: `.conducted/work/instruction-freshness/`
 - documents: problem.md · solution.md
-- derived status: `accepted`   ·   roadmap says: `accepted`
-- branches: none matching this feature name
-- worktrees: none
+- derived status: `development`   ·   roadmap says: `development`
+- branches:
+  - `instruction-freshness` @ `be4dd2fc` (local+origin)
+- worktrees:
+  - `worktrees/instruction-freshness` -> C:/code/repos/conducted-lite/worktrees/instruction-freshness
 - PR: none declared (to declare one, put `PR: #<n>` or the pull-request URL on a LINE OF ITS OWN below the markers — a mention inside a sentence is not a declaration)
 - session log (most recent, bounded):
   - `2026-08-12T14:42:52.686Z` session `scaffold` — folder and state.md created by .claude/scripts/session-end.mjs --new-feature
-<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTRUMjM6NTc6NTAuNzE0WiIsInN0YXR1cyI6ImFjY2VwdGVkIiwiYnJhbmNoZXMiOltdLCJ3b3JrdHJlZXMiOltdLCJwciI6IiJ9 -->
+<!-- conducted-lite:state eyJhdCI6IjIwMjYtMDgtMTVUMDA6MDc6NDAuODU0WiIsInN0YXR1cyI6ImRldmVsb3BtZW50IiwiYnJhbmNoZXMiOlsiaW5zdHJ1Y3Rpb24tZnJlc2huZXNzIl0sIndvcmt0cmVlcyI6WyJ3b3JrdHJlZXMvaW5zdHJ1Y3Rpb24tZnJlc2huZXNzIl0sInByIjoiIn0= -->
 <!-- conducted-lite:sessions W3siYXQiOiIyMDI2LTA4LTEyVDE0OjQyOjUyLjY4NloiLCJpZCI6InNjYWZmb2xkIiwibm90ZSI6ImZvbGRlciBhbmQgc3RhdGUubWQgY3JlYXRlZCBieSAuY2xhdWRlL3NjcmlwdHMvc2Vzc2lvbi1lbmQubWpzIC0tbmV3LWZlYXR1cmUifV0= -->
-<!-- conducted-lite:judgment sha=2f4cf7e7b61a828f at=2026-08-14T23:57:50.714Z -->
+<!-- conducted-lite:judgment sha=f44815a0b9bb7e01 at=2026-08-15T00:04:42.724Z -->
 <!-- conducted-lite:facts:end -->
 
 ## Decisions
@@ -48,6 +50,22 @@ root fix is a standard — a standing instruction carries law and pointers, neve
 and the machinery enforces only its mechanically-checkable edge, at the write. Reopens if the field
 shows a name going stale AFTER a compliant write often enough to need a read-side net; that residue
 is declared in `solution.md`, not solved.
+
+**2026-08-15 — build accepted on the branch (`b34a349`).** Conductor diff review passed; the fresh
+evaluator drove its own payloads and returned MET on every behavioural criterion — isolation proven
+in both directions with its own mutant, a decision-shaped injection could not escape the JSON, and
+the deny path never runs the pass. The real-file replay was then run by the conductor against all
+three deployments, each searched against its own tree: mukfork silent; miq flagged
+`C:\tools\flutter\bin\flutter` and `/home/miq/miq-server/miq-core` — the two incident classes from
+problem.md, still live in the file; bookjob flagged `C:\Users\simon.hobman\.claude`, a
+machine-specific path. Zero class-B false positives on any real file. Judgement: these are the
+disease, not noise — the quiet test passes. Borderline: miq's `C:\code\repos\miq` self-reference
+fired in the same finding; cost is one paragraph at edit time, accepted. Reopens if the field shows
+the class-A flag firing on paths owners keep on purpose often enough to teach dismissal.
+
+**2026-08-15 — the standard's home moved by the owner's restatement.** He ruled that `standards.md`
+belongs to the conducted project, not to conducted — so if the standard is accepted it lands as a
+line in CONDUCTOR.md, the law, and criterion 3 should be read that way. His word is still the gate.
 
 ## Issues
 
