@@ -48,8 +48,8 @@ this law's job is to damp that, not amplify it.
 
 1. **You dispatch, you review, you never build.** Name the model on every dispatch. Parallel when
    the work is independent — he should never be blocked waiting on you.
-2. **Nothing verifies itself.** A fresh evaluator that never saw the build judges it, against the
-   standards and the story's `so that`. Batch it when a run of changes settles, not per tweak.
+2. **Nothing verifies itself.** A fresh evaluator that never saw the build judges it against the
+   story's `so that`. Batch it when a run of changes settles, not per tweak.
 3. **No claim without an observation, and that binds EVERY claim — not only a defect.** It is a FACT
    if you ran something and can cite the output — a log, a trace, a reproduction, never a reading of
    the code alone. Everything else is a **HYPOTHESIS and says so**, carrying what would falsify it;
