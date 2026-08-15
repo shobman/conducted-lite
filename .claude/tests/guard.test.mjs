@@ -20,6 +20,13 @@
 //   · "any unexpected throw fails open" — a throw inside main() cannot be provoked through the
 //     payload. B-failopen-hostile-shapes feeds nested objects and numbers where strings are
 //     expected, which is as close as the boundary allows; it exercises the coercions, not the catch.
+//     ONE THROW IS NOW MEASURED, and only because the corpus manufactures it: the F-iso-mutant-*
+//     cases spawn a copy of the guard with a `throw` inserted at the top of the instruction-freshness
+//     entry point, because "no failure in that pass can change the allow/deny answer" is a claim
+//     about ORDER that no payload can reach. That is a mutation of the real file read at run time,
+//     not a second copy of the guard, and one of the three checks the instrument: it asserts that a
+//     payload the real guard FLAGS goes silent under the mutant, so a mutation that failed to apply
+//     cannot let the other two pass vacuously. Nothing else in here reaches inside the guard.
 //   · the 5-second stdin read timeout — testable only by holding stdin open for five seconds, which
 //     would put a five-second sleep in every run. Left out deliberately, not overlooked.
 
@@ -48,24 +55,35 @@ if (!existsSync(GUARD)) {
 }
 
 // ---------------------------------------------------------------------------------- driving it
-function invoke({ stdin, cwd }) {
+function invoke({ stdin, cwd, guard }) {
   // CLAUDE_PROJECT_DIR is a second way for the guard to find a repo root, and inheriting the
   // maintainer's would make the "not a lite repo" cases pass for the wrong reason.
   const env = { ...process.env };
   delete env.CLAUDE_PROJECT_DIR;
-  const r = spawnSync(process.execPath, [GUARD], { input: stdin, cwd, env, encoding: 'utf8' });
+  const r = spawnSync(process.execPath, [guard || GUARD], { input: stdin, cwd, env, encoding: 'utf8' });
   return { status: r.status, stdout: r.stdout || '', stderr: r.stderr || '', error: r.error };
 }
 
+// A DECISION AND A FINDING ARE DIFFERENT THINGS, and this is where that is enforced rather than
+// described. The instruction-freshness pass writes JSON with NO `permissionDecision` in it — it
+// informs, it does not decide — so stdout carrying only `additionalContext` reads as the allow it
+// is. Stdout carrying neither stays `(none)`, which is what it always was: JSON that decides
+// nothing and says nothing is a shape this corpus should keep failing on.
 function readDecision(res) {
   const out = res.stdout.trim();
-  if (!out) return { decision: 'allow', reason: '', parseError: null };
+  if (!out) return { decision: 'allow', reason: '', context: '', parseError: null };
   try {
     const j = JSON.parse(out);
     const h = j.hookSpecificOutput || {};
-    return { decision: h.permissionDecision || '(none)', reason: String(h.permissionDecisionReason || ''), parseError: null };
+    const context = String(h.additionalContext || '');
+    return {
+      decision: h.permissionDecision || (context ? 'allow' : '(none)'),
+      reason: String(h.permissionDecisionReason || ''),
+      context,
+      parseError: null,
+    };
   } catch (e) {
-    return { decision: '(unparseable stdout)', reason: out, parseError: String(e.message) };
+    return { decision: '(unparseable stdout)', reason: out, context: '', parseError: String(e.message) };
   }
 }
 
@@ -95,8 +113,16 @@ function namedPath(reason) {
 // ------------------------------------------------------------------------------------ asserting
 function judge(kase, res) {
   const fails = [];
-  const { decision, reason, parseError } = readDecision(res);
+  const { decision, reason, context, parseError } = readDecision(res);
   const want = kase.expect;
+
+  if ('guard' in kase && !kase.guard) {
+    fails.push({
+      what: 'mutant',
+      detail: 'the corpus could not build the mutated guard — the freshness entry point named in ' +
+        'MUTANT_ANCHOR is not in the guard any more, so isolation is UNMEASURED, not proven',
+    });
+  }
 
   if (res.error) fails.push({ what: 'spawn', detail: `the guard could not be spawned: ${res.error.message}` });
   if (res.status !== 0) {
@@ -131,7 +157,25 @@ function judge(kase, res) {
     }
   }
 
-  return { fails, decision, reason };
+  // THE ATTACHED FINDING. Same discipline as the deny prose above: patterns, never whole sentences,
+  // because the wording belongs to the guard's author and will be rewritten. What must survive a
+  // rewrite is that the finding NAMES its token and SAYS WHAT WAS SEARCHED, and that silence is
+  // silence — a finding nobody asked for is the wallpaper this feature exists to avoid.
+  for (const re of [].concat(want.context || [])) {
+    if (!re.test(context)) {
+      fails.push({ what: 'finding', detail: `no match for ${re}${context ? '' : ' (nothing was attached at all)'}` });
+    }
+  }
+  if (want.noContext && context) {
+    fails.push({ what: 'finding', detail: `want silence, got: ${context.replace(/\s+/g, ' ').slice(0, 220)}` });
+  }
+  for (const s of want.contextNotMentions || []) {
+    if (context.includes(s)) {
+      fails.push({ what: 'finding names something that is not there', detail: `the finding contains ${s}` });
+    }
+  }
+
+  return { fails, decision, reason, context };
 }
 
 // --------------------------------------------------------------------------------------- running
@@ -148,9 +192,9 @@ for (const kase of selected) {
   // usable cwd, so it is set to the same place the payload claims.
   const childCwd = outside ? OUTSIDE : (typeof payloadCwd === 'string' && existsSync(payloadCwd) ? payloadCwd : REPO_ROOT);
 
-  const res = invoke({ stdin, cwd: childCwd });
-  const { fails, decision, reason } = judge(kase, res);
-  results.push({ kase, fails, decision, reason, counted: kase.group === 'A' || kase.group === 'B' });
+  const res = invoke({ stdin, cwd: childCwd, guard: kase.guard });
+  const { fails, decision, reason, context } = judge(kase, res);
+  results.push({ kase, fails, decision, reason, context, counted: kase.group === 'A' || kase.group === 'B' });
 }
 
 // ---------------------------------------------------------------------------------- the table
@@ -191,8 +235,8 @@ for (const r of results) {
   if (!ok && !r.counted && r.kase.note) {
     console.log(`${pad('', W)}       ->     ${r.kase.note}`);
   }
-  if (VERBOSE && !ok && r.reason) {
-    console.log(`${pad('', W)}       msg    ${r.reason.replace(/\s+/g, ' ').slice(0, 400)}`);
+  if (VERBOSE && !ok && (r.reason || r.context)) {
+    console.log(`${pad('', W)}       msg    ${(r.reason || r.context).replace(/\s+/g, ' ').slice(0, 400)}`);
   }
 }
 

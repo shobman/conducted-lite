@@ -20,8 +20,13 @@
 //                 belongs to the guard's author and will be rewritten.
 //   notMentions   substrings the message must not contain anywhere. This is the wording-independent
 //                 half of defect 4 — a deny that names a file the command does not write.
+//   context       RegExp, or an array of them, the ATTACHED FINDING must match. A finding is the
+//                 instruction-freshness pass speaking; it is not a decision, and a case asserting
+//                 one still asserts `decision: 'allow'` beside it, because that is the promise.
+//   noContext     true where the pass must say NOTHING — a clean write, a file that is not the
+//                 instruction file, or a forced fault. Silence is an assertion here, not a default.
 
-import { readFileSync, mkdirSync, writeFileSync, realpathSync } from 'node:fs';
+import { readFileSync, mkdirSync, writeFileSync, realpathSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -79,6 +84,128 @@ const SHORT_NAMES_EXIST = (() => {
   try { return /[/\\]\.conducted$/.test(realpathSync.native(join(REPO_ROOT, 'CONDUC~1'))); }
   catch { return false; }
 })();
+
+// ----------------------------------------------------------------- the instruction-freshness tree
+// A SYNTHETIC LITE REPO WITH ORDINARY FILES IN IT, because the freshness pass answers "can this repo
+// find that name" by WALKING A TREE, and a corpus that walked this checkout would be measuring the
+// checkout instead of the check. Two things make that fatal rather than untidy: a fixture holding
+// the content under test lives in this tree, so every name in it would be found in the fixture
+// itself and every flag case would go quiet for a reason that has nothing to do with the guard; and
+// this repo's own files change every session, so a case that passes today fails when someone writes
+// a document that happens to mention its token. Fixed names, never a timestamp: a run is reproducible.
+//
+// The one case that DOES search this checkout is the quiet test on this repo's own `CLAUDE.md`, and
+// it is safe for the opposite reason: the file being written is excluded from its own search, and
+// its content is the file, not a fixture copy of it.
+const FRESH_ROOT = join(tmpdir(), 'conducted-lite-guard-corpus-instruction');
+// The tree, small and ordinary. Content matters as much as the paths: the pass asks both "is there a
+// file of that name" and "does any file MENTION that name", and the two must be separable.
+const FRESH_TREE = {
+  '.conducted/CONDUCTOR.md': '# Conductor — corpus fixture root, not real doctrine\n',
+  '.conducted/VISION.md': '# Vision\n\nWe have won when the relay drops nothing under load.\n',
+  '.conducted/standards.md': '# Standards\n\n1. Every queue write is idempotent.\n',
+  '.conducted/roadmap.md': '# Roadmap\n\n## development\n\n- relay-backpressure\n',
+  '.conducted/archive.md': '# Archive\n\n- relay-tracing, landed 2026-07-02\n',
+  '.conducted/work/relay-backpressure/state.md': '# relay-backpressure — feature state\n',
+  '.conducted/work/relay-backpressure/problem.md': '# relay-backpressure — problem\n',
+  '.conducted/work/relay-backpressure/solution.md': '# relay-backpressure — solution\n',
+  '.claude/settings.json': '{ "hooks": {} }\n',
+  '.claude/hooks/conductor-guard.mjs': '// corpus stub, not the guard\n',
+  '.claude/hooks/stop-glance.mjs': '// corpus stub\n',
+  '.claude/scripts/session-end.mjs': '// corpus stub\n',
+  '.claude/tests/guard.test.mjs': '// corpus stub\n',
+  '.github/workflows/ci.yml': 'name: ci\n',
+  '.gitignore': 'node_modules\nworktrees\n',
+  // THE FILE BEING WRITTEN, AND THE ONLY PLACE `retired-relay.service` APPEARS IN THIS TREE. It is
+  // what proves the target is excluded from its own search: a stale name already in the instruction
+  // file must not vouch for the line rewriting it.
+  'CLAUDE.md': '# CLAUDE.md\n\nThe ingest box runs `retired-relay.service`.\n',
+  'README.md': '# relay\n\nA Node.js service. Search it with ripgrep, build it with pnpm, store in PostgreSQL.\n',
+  'CONTRIBUTING.md': '# Contributing\n\nOpen a pull request against `main`.\n',
+  'package.json': '{ "name": "relay", "scripts": { "build": "tsc", "test": "node --test" } }\n',
+  'tsconfig.json': '{ "compilerOptions": { "strict": true } }\n',
+  'src/index.ts': 'export { start } from "./relay";\n',
+  'src/relay.ts': 'export function start() {}\n',
+  'src/queue.ts': 'export class Queue {}\n',
+  'src/config.ts': 'export const PORT = 8080;\n',
+  'test/relay.test.ts': 'import { start } from "../src/relay";\n',
+  'scripts/deploy.sh': '#!/usr/bin/env bash\nset -euo pipefail\n',
+  'scripts/smoke.sh': '#!/usr/bin/env bash\ncurl -fsS localhost:8080/healthz\n',
+  // A NAME THAT IS MENTIONED BUT IS NOT A FILE. The unit names live here and nowhere else, which is
+  // what separates "the repo has a file called that" from "the repo mentions it".
+  'docs/runbook.md': '# Runbook\n\nThe live units are `relay-ingest.service` and `relay-worker.service`,\nreached at relay.example.internal.\n',
+  'docs/architecture.md': '# Architecture\n\nIngest -> queue -> worker.\n',
+  'research/2026-08-10-queue-prior-art.md': '# Prior art\n\nRead about durable queues.\n',
+};
+for (const [rel, body] of Object.entries(FRESH_TREE)) {
+  const abs = join(FRESH_ROOT, rel);
+  mkdirSync(dirname(abs), { recursive: true });
+  writeFileSync(abs, body);
+}
+
+// A write of a fixture's bytes INTO that tree's `CLAUDE.md`. The freshness pass is the only thing
+// under test here, so every one of these is an allow before it is anything else.
+const fresh = (fixture, over = {}) => ({
+  session_id: 'corpus',
+  transcript_path: '/dev/null',
+  hook_event_name: 'PreToolUse',
+  cwd: FRESH_ROOT,
+  tool_name: 'Write',
+  tool_input: { file_path: 'CLAUDE.md', content: fx(fixture) },
+  ...over,
+});
+const freshBash = (fixture, over = {}) => ({
+  session_id: 'corpus',
+  transcript_path: '/dev/null',
+  hook_event_name: 'PreToolUse',
+  cwd: FRESH_ROOT,
+  tool_name: 'Bash',
+  tool_input: { command: fx(fixture) },
+  ...over,
+});
+
+// THE MUTANT. Acceptance criterion 6 is "no failure in the freshness pass changes the guard's
+// allow/deny answer in either direction", and that is a claim about ORDER — the pass must be
+// unreachable until a verdict exists — which no ordinary payload can test, because a payload cannot
+// make a working function throw. So the corpus BREAKS the guard on purpose: a copy of it with one
+// `throw` inserted at the top of the freshness entry point, spawned instead of the real one.
+//
+// It is a mutation of the real file, read at run time, not a second copy of the guard that could
+// drift. If the anchor ever stops existing the mutant is null and the three cases that use it FAIL,
+// saying so — which is the honest outcome, because at that point the corpus cannot see what it
+// claims to be measuring. THE INSTRUMENT IS CHECKED TOO: one of the three feeds the mutant a payload
+// that the real guard flags, and asserts SILENCE. A mutation that failed to apply would light that
+// case up, so the two cases that assert "still denied" and "still allowed" cannot pass vacuously.
+const MUTANT_ANCHOR = 'function freshnessNote(data) {';
+export const MUTANT_GUARD = (() => {
+  try {
+    const src = readFileSync(join(REPO_ROOT, '.claude', 'hooks', 'conductor-guard.mjs'), 'utf8');
+    if (!src.includes(MUTANT_ANCHOR)) return null;
+    const dir = join(tmpdir(), 'conducted-lite-guard-corpus-mutant');
+    mkdirSync(dir, { recursive: true });
+    const p = join(dir, 'conductor-guard.mjs');
+    writeFileSync(p, src.replace(
+      MUTANT_ANCHOR,
+      `${MUTANT_ANCHOR}\n  throw new Error('corpus-forced fault in the freshness pass');`,
+    ));
+    return p;
+  } catch { return null; }
+})();
+
+// A REAL INSTRUCTION FILE CAN BE DROPPED IN. Every `f-quiet-*.txt` in fixtures/ becomes a quiet case
+// automatically — copy one in and it is measured on the next run, with no edit here. It is measured
+// against the synthetic tree above, which is the honest default: a file from another repo names that
+// repo's paths, so point the pass at that repo instead with
+//     CONDUCTED_FRESHNESS_REPLAY=<file>  CONDUCTED_FRESHNESS_REPLAY_ROOT=<that repo's root>
+// which adds one more quiet case reading those bytes against that tree. Nothing is tuned to make
+// either pass: a finding is a finding, and the conductor's acceptance step is where miq's own file
+// gets replayed.
+const quietFixtures = readdirSync(join(HERE, 'fixtures'))
+  .filter((f) => /^f-quiet-.*\.txt$/.test(f))
+  .sort()
+  .map((f) => f.replace(/\.txt$/, ''));
+const replayFile = process.env.CONDUCTED_FRESHNESS_REPLAY || '';
+const replayRoot = process.env.CONDUCTED_FRESHNESS_REPLAY_ROOT || FRESH_ROOT;
 
 const write = (file_path, over = {}) => ({
   session_id: 'corpus',
@@ -1891,6 +2018,324 @@ export const cases = [
     expect: SHORT_NAMES_EXIST
       ? { decision: 'deny', named: '.claude/hooks/conductor-guard.mjs' }
       : { decision: 'allow' },
+  },
+
+  // ---- instruction freshness: the write-time check on `CLAUDE.md` -------------------------------
+  // REPORT-ONLY, AND EVERY ONE OF THESE ASSERTS THE ALLOW FIRST. The pass attaches words to a write
+  // and does nothing else, so `decision: 'allow'` sits beside every `context` here; a case where the
+  // two disagreed would be the feature failing, not the wording.
+  //
+  // They run against the SYNTHETIC TREE built at the top of this file, not against this checkout —
+  // see the comment there. The one exception is the quiet test on this repo's own `CLAUDE.md`, which
+  // is the point of that test.
+  {
+    id: 'F-fresh-abs-windows',
+    group: 'B',
+    what: 'an absolute Windows path in the content written to CLAUDE.md is flagged',
+    why: "miq's runbook line: a toolchain path that was correct in one shell and wrong in the two " +
+      'others the same repo uses, WRONG WITHIN MINUTES of being written. Age was never the signal, ' +
+      'which is why the check is at the write and why this class needs no search at all — the shape ' +
+      'is the finding.',
+    payload: fresh('f-abs-windows-path'),
+    expect: {
+      decision: 'allow',
+      context: [/absolute, platform-specific path/i, /C:\\Program Files\\nodejs\\node\.exe/, /never blocked/i],
+    },
+  },
+  {
+    id: 'F-fresh-abs-gitbash-with-a-space',
+    group: 'B',
+    what: 'a bare `/c/Program Files/git/bin` is ONE path, not a path plus a missing name',
+    why: 'The bare scan stops at a space, and measured on a real payload that cost twice: class A ' +
+      'named the stub `/c/Program` and class B then reported the remainder `Files/git/bin` as a ' +
+      'name the repo cannot find. One path, two findings, one of them nonsense. The continuation ' +
+      'rule is what this case holds in place — and `notMentions` is the half that survives a ' +
+      'rewording of the finding.',
+    payload: fresh('f-abs-gitbash-path'),
+    expect: {
+      decision: 'allow',
+      context: [/absolute, platform-specific path/i, /\/c\/Program Files\/git\/bin/],
+      // The whole path ENDS in `bin`, so the string to forbid is the fragment quoted on its own —
+      // a backtick before `Files` is only there if the remainder was reported as a second name.
+      contextNotMentions: ['`Files/git/bin`', 'nothing in this repo mentions'],
+    },
+  },
+  {
+    id: 'F-fresh-abs-unix-and-home',
+    group: 'B',
+    what: 'the `/home/<name>/`, `/mnt/c/` and `/Users/` spellings, three in one write',
+    why: 'THE COMMA CASE. These three sit in one sentence separated by commas, and a continuation ' +
+      'rule that reads the next path as more of the previous one reported them as a single token ' +
+      'AND reported one of them twice — measured, and fixed by refusing a continuation that begins ' +
+      'with a separator. Three paths, three names, one finding.',
+    payload: fresh('f-abs-unix-home-paths'),
+    expect: {
+      decision: 'allow',
+      context: [/\/home\/deploy\/relay/, /\/mnt\/c\/work\/relay/, /\/Users\/simon\/code\/relay/],
+      contextNotMentions: ['/home/deploy/relay,'],
+    },
+  },
+  {
+    id: 'F-fresh-name-backticked-missing',
+    group: 'B',
+    what: 'a backticked name the repo cannot find is flagged, and the finding says what was searched',
+    why: "miq's confirmed kill: an instruction file named a service unit that had moved, an " +
+      'overnight session queried the retired unit, got a confident zero, and wrote a defect that ' +
+      'did not exist into a state.md as evidence. Caught at the door instead of hunted afterward. ' +
+      'The finding must NAME the token and SAY WHAT WAS SEARCHED — a bare "suspicious" is the ' +
+      'wallpaper this feature refuses.',
+    payload: fresh('f-name-backticked-missing'),
+    expect: {
+      decision: 'allow',
+      context: [/`relay-ingest-v2\.service`/, /in backticks/, /nothing in this repo mentions/i,
+        /Searched \d+ files/, /no path matches/, /never blocked/i],
+    },
+  },
+  {
+    id: 'F-fresh-name-path-missing',
+    group: 'B',
+    what: 'a path-shaped token the repo cannot find, with no backticks around it',
+    why: 'The other half of the declared bound. A path shape is a token whether or not the author ' +
+      'marked it as one, and `scripts/promote-prod.sh` is exactly the kind of line that enters an ' +
+      'instruction file describing a script somebody meant to add.',
+    payload: fresh('f-name-path-missing'),
+    expect: {
+      decision: 'allow',
+      context: [/`scripts\/promote-prod\.sh`/, /as a path/, /nothing in this repo mentions/i],
+    },
+  },
+  {
+    id: 'F-fresh-name-mentioned-is-found',
+    group: 'B',
+    what: 'a unit name that is MENTIONED in a file but is not a file — silence',
+    why: 'THE HALF THAT KEEPS THIS FROM BEING A NAG. `relay-ingest.service` is not a path and never ' +
+      'will be; it appears in `docs/runbook.md` and that is the repo finding it. A check that only ' +
+      'asked the filesystem would flag every service, host and artifact a repo legitimately names, ' +
+      'and would be switched off within a week.',
+    payload: fresh('f-name-mentioned-only'),
+    expect: { decision: 'allow', noContext: true },
+  },
+  {
+    id: 'F-fresh-name-exists-as-a-file',
+    group: 'B',
+    what: 'backticked paths that really are files — silence',
+    why: 'The cheapest half of the search, and the one that must never speak: a name the tree holds ' +
+      'is a name the tree holds.',
+    payload: fresh('f-name-exists-as-file'),
+    expect: { decision: 'allow', noContext: true },
+  },
+  {
+    id: 'F-fresh-the-file-cannot-corroborate-itself',
+    group: 'B',
+    what: 'a stale name that appears ONLY in the CLAUDE.md being rewritten is still flagged',
+    why: 'THE CASE THAT DECIDES WHETHER THIS CHECK IS WORTH HAVING. `retired-relay.service` is in ' +
+      'the synthetic tree exactly once, in the instruction file itself. If the target were included ' +
+      'in its own search, every stale name already on the page would vouch for the line rewriting ' +
+      'it and the pass would be silent precisely where it is needed. Read with ' +
+      'F-fresh-name-mentioned-is-found: that one proves the exclusion is not a blanket.',
+    payload: fresh('f-name-only-in-the-file-itself'),
+    expect: { decision: 'allow', context: [/`retired-relay\.service`/, /nothing in this repo mentions/i] },
+  },
+  {
+    id: 'F-fresh-not-the-instruction-file',
+    group: 'B',
+    what: 'the same flagging content written to `.conducted/roadmap.md` gets no pass at all',
+    why: 'The pass rides this guard\'s interception of ONE file. A roadmap row, a research note and ' +
+      'a problem statement are all documents that legitimately quote a name from somewhere else, ' +
+      'and none of them is asserted to every session as instruction. Silence here is the scope.',
+    payload: fresh('f-name-backticked-missing', { tool_input: { file_path: '.conducted/roadmap.md', content: fx('f-name-backticked-missing') } }),
+    expect: { decision: 'allow', noContext: true },
+  },
+  {
+    id: 'F-fresh-edit-reads-only-the-new-bytes',
+    group: 'B',
+    what: 'an Edit whose OLD text carries the missing name and whose new text does not — silence',
+    why: 'An Edit that REMOVES a stale name is the fix, and flagging it would be the machine ' +
+      'complaining about being obeyed. Only `new_string` is read, which is also why the reverse ' +
+      'case (F-fresh-edit-new-text-is-read) fires.',
+    payload: fresh('f-name-backticked-missing', {
+      tool_name: 'Edit',
+      tool_input: {
+        file_path: 'CLAUDE.md',
+        old_string: 'The ingest box runs `relay-ingest-v2.service`.',
+        new_string: 'The units are named in `docs/runbook.md`.',
+      },
+    }),
+    expect: { decision: 'allow', noContext: true },
+  },
+  {
+    id: 'F-fresh-edit-new-text-is-read',
+    group: 'B',
+    what: 'an Edit that INTRODUCES a name the repo cannot find is flagged',
+    why: 'The pair to the case above. A write is a write whichever tool makes it, and an Edit is ' +
+      'how a stale line usually enters a file that already exists.',
+    payload: fresh('f-name-backticked-missing', {
+      tool_name: 'Edit',
+      tool_input: {
+        file_path: 'CLAUDE.md',
+        old_string: 'The ingest box runs `retired-relay.service`.',
+        new_string: 'The ingest box runs `relay-ingest-v2.service`.',
+      },
+    }),
+    expect: { decision: 'allow', context: [/`relay-ingest-v2\.service`/] },
+  },
+  {
+    id: 'F-fresh-bash-heredoc-into-claude-md',
+    group: 'B',
+    what: 'a heredoc body redirected into CLAUDE.md is content, and it is read',
+    why: 'The declared Bash shape, and the only one. The body comes out of the same codeMask() that ' +
+      'already walks it rather than a second heredoc reader — see the note on that function. ' +
+      'Everything else a shell can do to this file writes content the hook cannot read, and ' +
+      'inventing content is worse than missing it.',
+    payload: freshBash('f-bash-heredoc-into-claude-md'),
+    expect: { decision: 'allow', context: [/`relay-ingest-v2\.service`/, /never blocked/i] },
+  },
+  {
+    id: 'F-fresh-bash-heredoc-into-another-owned-file',
+    group: 'B',
+    what: 'the same heredoc into `.conducted/roadmap.md` — silence',
+    why: 'The control for the case above: it is the TARGET that decides, not the shape. Both are ' +
+      'owned, both allow, and only one of them is the standing instruction.',
+    payload: freshBash('f-bash-heredoc-into-roadmap'),
+    expect: { decision: 'allow', noContext: true },
+  },
+  {
+    id: 'F-fresh-bash-reading-claude-md',
+    group: 'B',
+    what: 'a Bash command that READS CLAUDE.md gets no pass',
+    why: 'Reads are never denied and they are never flagged either. The command names the file, ' +
+      'which is what the cheap pre-filter matches on, so this is the case that proves the filter is ' +
+      'not the answer — the target of a write is.',
+    payload: freshBash('f-bash-read-claude-md'),
+    expect: { decision: 'allow', noContext: true },
+  },
+  {
+    id: 'F-fresh-malformed-binary-content',
+    group: 'B',
+    what: 'binary bytes written to CLAUDE.md flag nothing',
+    why: 'Acceptance criterion 6, the malformed-content half. A zip header carries NULs, `PK`, and ' +
+      'byte sequences that a regex will happily read as tokens. Nothing here is a name and nothing ' +
+      'is said. It must also not throw: a throw would be caught and silent, and this case cannot ' +
+      'tell those apart, which is what the mutant cases below are for.',
+    payload: fresh('f-malformed-binary'),
+    expect: { decision: 'allow', noContext: true },
+  },
+  {
+    id: 'F-fresh-quiet-this-repos-own-claude-md',
+    group: 'B',
+    what: "THE QUIET TEST — this repo's own CLAUDE.md, byte for byte, against this repo",
+    why: 'Acceptance criterion 5, the half that can be run here. This is the existence proof the ' +
+      'solution names: a standing instruction that carries law and pointers and no mutable fact has ' +
+      'nothing for this pass to say about it. It is the ONE case that searches this checkout, and ' +
+      'it is safe to because the file being written is excluded from its own search — its content ' +
+      'is the file itself, not a fixture copy sitting somewhere else in the tree.',
+    payload: {
+      session_id: 'corpus',
+      transcript_path: '/dev/null',
+      hook_event_name: 'PreToolUse',
+      cwd: REPO_ROOT,
+      tool_name: 'Write',
+      tool_input: { file_path: 'CLAUDE.md', content: readFileSync(join(REPO_ROOT, 'CLAUDE.md'), 'utf8') },
+    },
+    expect: { decision: 'allow', noContext: true },
+  },
+  ...quietFixtures.map((f) => ({
+    id: `F-fresh-quiet-${f.replace(/^f-quiet-/, '')}`,
+    group: 'B',
+    what: `THE QUIET TEST — ${f}.txt must produce no finding a human then has to dismiss`,
+    why: 'Auto-discovered: every `f-quiet-*.txt` in fixtures/ is measured, so a real instruction ' +
+      'file can be dropped in with no edit here. A check that flags prose it merely finds ' +
+      'suspicious is ignored within a week and will have taught the conductor to skip the one ' +
+      'place the machine speaks — so silence on an ordinary page is the acceptance, not a bonus.',
+    payload: fresh(f),
+    expect: { decision: 'allow', noContext: true },
+  })),
+  ...(replayFile
+    ? [{
+        id: 'F-fresh-quiet-replay',
+        group: 'B',
+        what: `THE QUIET TEST — the replay file at ${replayFile}`,
+        why: 'Set CONDUCTED_FRESHNESS_REPLAY and CONDUCTED_FRESHNESS_REPLAY_ROOT to run a real ' +
+          "instruction file from another repo against that repo's own tree. Nothing is tuned to " +
+          'make it pass.',
+        payload: {
+          session_id: 'corpus',
+          transcript_path: '/dev/null',
+          hook_event_name: 'PreToolUse',
+          cwd: replayRoot,
+          tool_name: 'Write',
+          tool_input: { file_path: 'CLAUDE.md', content: readFileSync(replayFile, 'utf8') },
+        },
+        expect: { decision: 'allow', noContext: true },
+      }]
+    : []),
+  {
+    id: 'F-fresh-outside-a-lite-repo',
+    group: 'B',
+    what: 'a CLAUDE.md write with no lite tree above it — silence, as everything else is there',
+    why: 'This law is not in force outside a lite repo, and neither is this pass: there is no tree ' +
+      'to search and no instruction file to be. It falls out of asking the same classify() every ' +
+      'other branch asks rather than matching the name.',
+    outsideRepo: true,
+    payload: {
+      session_id: 'corpus',
+      transcript_path: '/dev/null',
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Write',
+      tool_input: { file_path: 'CLAUDE.md', content: fx('f-name-backticked-missing') },
+    },
+    expect: { decision: 'allow', noContext: true },
+  },
+  {
+    id: 'F-fresh-a-dispatched-builder-is-still-told',
+    group: 'B',
+    what: 'agent_id present: the write is allowed instantly AND the finding is still attached',
+    why: 'A DECISION, WRITTEN DOWN. `agent_id` is the discriminator for "this is who is supposed to ' +
+      'be writing", and it stays the first thing this guard asks — the verdict is decided before ' +
+      'the pass runs, exactly as on the other two paths. But a builder writing the standing ' +
+      'instruction is still writing the standing instruction, and the pass informs rather than ' +
+      'decides, so there is no reason for it to be silent here.',
+    payload: fresh('f-name-backticked-missing', { agent_id: 'builder-7', agent_type: 'general-purpose' }),
+    expect: { decision: 'allow', context: [/`relay-ingest-v2\.service`/] },
+  },
+
+  // ---- isolation: the freshness pass forced to crash ---------------------------------------------
+  // Acceptance criterion 6, and the load-bearing one. These three spawn a MUTANT of the guard — the
+  // real file with one `throw` inserted at the top of the freshness entry point. See MUTANT_GUARD.
+  {
+    id: 'F-iso-mutant-fires-at-all',
+    group: 'B',
+    what: 'THE INSTRUMENT CHECK — under the mutant, a write the real guard FLAGS says nothing',
+    why: 'Read this one first. It is the same payload as F-fresh-name-backticked-missing, which ' +
+      'produces a finding against the real guard; under the mutant it must be silent. A mutation ' +
+      'that failed to apply would light this case up, which is what stops the two cases below from ' +
+      'passing vacuously — non-negotiable 3: check the instrument before believing a null.',
+    guard: MUTANT_GUARD,
+    payload: fresh('f-name-backticked-missing'),
+    expect: { decision: 'allow', noContext: true },
+  },
+  {
+    id: 'F-iso-mutant-a-deny-is-still-a-deny',
+    group: 'B',
+    what: 'with the freshness pass throwing, a command that writes product code is STILL DENIED',
+    why: 'THE CLAIM THIS FEATURE HAS TO EARN. main() is wrapped in `try { main(data) } catch ' +
+      '{ quiet() }`, so a throw anywhere AHEAD of a deny() turns that deny into a silent allow — ' +
+      'the security half of this guard, disabled by a reporting flag. The pass is therefore ' +
+      'invoked only from settled verdicts and has no call site on the deny path at all, and this ' +
+      'case is what measures that rather than asserting it.',
+    guard: MUTANT_GUARD,
+    payload: bash('b-redirect-product'),
+    expect: { decision: 'deny', named: 'src/app.ts' },
+  },
+  {
+    id: 'F-iso-mutant-an-allow-is-still-an-allow',
+    group: 'B',
+    what: 'with the freshness pass throwing, a write the conductor owns still proceeds, silently',
+    why: 'The other direction, and the one a careless catch gets wrong: a crash that BLOCKED a write ' +
+      'would be the flag failing closed on the briefing page. Fails open, silently, exit 0.',
+    guard: MUTANT_GUARD,
+    payload: write('.conducted/roadmap.md'),
+    expect: { decision: 'allow', noContext: true },
   },
 
   // ===========================================================================================

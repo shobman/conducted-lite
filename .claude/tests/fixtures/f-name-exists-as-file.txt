@@ -1,0 +1,3 @@
+# CLAUDE.md
+
+Backpressure lives in `src/queue.ts` and is configured in `src/config.ts`.

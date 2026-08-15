@@ -1,0 +1,1 @@
+cat CLAUDE.md | head -40

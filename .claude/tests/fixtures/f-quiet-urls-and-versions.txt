@@ -1,0 +1,26 @@
+# CLAUDE.md
+
+Everything on this page is a shape the freshness pass must NOT speak about. It is the bound written
+as a document rather than as a sentence in a header.
+
+Links: https://github.com/example/relay, https://docs.example.com/queue/backpressure and
+http://localhost:8080/healthz. Mail goes to relay-team@example.com.
+
+Versions and dates: v2.4.1, 2026-08-15, release 3.11, schema 12.0.4.
+
+Flags and fragments: `--verbose`, `-i`, `-pi.bak`, `2>&1`, `Ctrl+C`, `$HOME`, `${RELAY_URL}`.
+
+Prose that happens to carry a slash: and/or, input/output, TODO/FIXME, read/write, `application/json`,
+`text/plain`, 24/7, he/she.
+
+Placeholders: `worktrees/<feature>/`, `.conducted/work/<feature>/state.md`, `docs/**.md`, `{{name}}`.
+
+A home path this repo cannot be asked about: `~/.claude/settings.json`.
+
+Hosts under a common suffix: `example.com`, `relay.example.io`, `status.example.dev`.
+
+Names this repo really does hold: `package.json`, `src/queue.ts`, `docs/runbook.md`, `state.md`,
+`.claude/hooks/conductor-guard.mjs` and the roadmap at `.conducted/roadmap.md`.
+
+Names this repo only MENTIONS, which is still finding them: `relay-ingest.service`,
+`relay-worker.service`, `relay.example.internal` and `Node.js`.

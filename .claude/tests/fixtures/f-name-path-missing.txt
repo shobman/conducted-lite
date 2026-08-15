@@ -1,0 +1,3 @@
+# CLAUDE.md
+
+Promote a build with scripts/promote-prod.sh, never by hand.

@@ -1,0 +1,3 @@
+# CLAUDE.md
+
+The ingest box runs `retired-relay.service`. It is the only unit that matters.

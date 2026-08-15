@@ -1,0 +1,4 @@
+# CLAUDE.md
+
+Build with the pinned toolchain at `C:\Program Files\nodejs\node.exe`, never the
+one on PATH.

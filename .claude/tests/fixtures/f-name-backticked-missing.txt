@@ -1,0 +1,3 @@
+# CLAUDE.md
+
+The ingest box runs `relay-ingest-v2.service`. Restart it before a deploy.

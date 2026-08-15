@@ -1,0 +1,3 @@
+# CLAUDE.md
+
+Run the smoke check from /c/Program Files/git/bin before you tag a release.

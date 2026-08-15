@@ -1,0 +1,267 @@
+# CLAUDE.md
+
+This is the standing instruction for **relay**, a durable ingest service. It is written the way the
+instruction-freshness standard asks for: it carries law and pointers, and the mutable facts live in
+the files it points at. Read it once at the top of a session and then read what it points to.
+
+It is also, deliberately, a long and ordinary page. Prose, tables, fenced blocks, links, flags,
+version numbers, tool names and about fifty backticked spans — the shape of a file somebody
+actually maintains. The freshness pass must have nothing to say about any of it.
+
+## How we work
+
+How we work: `.conducted/CONDUCTOR.md`. One page, and it is the whole operating law — read it
+first. It does not grow; when a ruling needs somewhere to live it becomes a numbered standard or a
+hook instead.
+
+What we produce: `.conducted/standards.md`. The rules the output is held to, numbered, each with a
+line of evidence or a link. That file is expected to grow and nothing else is.
+
+Where the work is: `.conducted/roadmap.md` is the ledger and its headings are the status. Finished
+rows move to `.conducted/archive.md` so the ledger stays forward-looking. What winning looks like
+is in `.conducted/VISION.md`, rewritten in place and dated when it moves.
+
+Each roadmap row points at a folder under the work directory, where that feature's documents and
+its `state.md` live. The one in flight right now is the backpressure feature, whose state lives at
+`.conducted/work/relay-backpressure/state.md`.
+
+## The shape of the code
+
+| Area | Where | What it holds |
+|---|---|---|
+| entry point | `src/index.ts` | wiring, and nothing that can fail |
+| the relay itself | `src/relay.ts` | the loop, the retries, the backoff |
+| the queue | `src/queue.ts` | durability, ordering, backpressure |
+| configuration | `src/config.ts` | every knob, with a default beside it |
+| tests | `test/relay.test.ts` | one file, run with the platform runner |
+
+The build is TypeScript compiled by `tsc`, configured in `tsconfig.json`. Dependencies and scripts
+are in `package.json`. There is no bundler and there is not going to be one.
+
+Architecture, such as it is, is drawn in `docs/architecture.md`: ingest hands to the queue, the
+queue hands to the worker, and nothing in between holds state in memory across a restart.
+
+## Running it
+
+```bash
+pnpm install
+pnpm run build
+node --test
+```
+
+The smoke check is a shell script rather than a test, because it talks to a live box:
+
+```bash
+./scripts/smoke.sh
+```
+
+Deployment is one script and it is not interactive:
+
+```bash
+./scripts/deploy.sh
+```
+
+Read `docs/runbook.md` before you run either of them against anything that matters. The runbook is
+where the unit names, the host names and the restart order live — they are mutable facts and this
+page does not repeat them. The two units it names are `relay-ingest.service` and
+`relay-worker.service`, and they are named there rather than here for exactly that reason.
+
+## Conventions
+
+- **Node.js only.** No second runtime, no polyglot corners. If it cannot be done in `Node.js` it
+  gets a document before it gets a dependency.
+- **PostgreSQL is the only store.** Durability is the whole product; a cache that can disagree with
+  the store is a bug generator.
+- **Search with ripgrep.** It respects `.gitignore`, which is the behaviour you want when you are
+  asking "does this repo mention that".
+- **One test file until it hurts.** When `test/relay.test.ts` stops being readable, split it by
+  behaviour and not by module.
+- **No absolute paths anywhere in this repo**, including in the runbook, including in comments. A
+  path that is correct in one shell is wrong in the two others this repo is worked in.
+
+## Branches and worktrees
+
+Work happens on a branch named for the feature. A worktree, when one is wanted, goes under the
+gitignored `worktrees/<feature>/` directory inside the repo, and the directory name is the feature
+name. Nothing that walks the tree — a test runner, a linter, a coverage pass — may descend into it.
+
+The default branch is `main`. It is protected, and the protection is the point: nothing lands on it
+that a fresh evaluator has not judged against the acceptance criteria in the feature's `state.md`.
+
+## Continuous integration
+
+CI is one workflow, `.github/workflows/ci.yml`, and it runs the same three commands you run
+locally. If it needs a fourth, that fourth belongs in `package.json` first so that a human can run
+it too. A CI step nobody can reproduce on a laptop is a step nobody will fix.
+
+## The machinery in this repo
+
+Three hooks and one script, each of which documents its own guarantees. Read the file, not this
+page — a description kept by hand beside the thing it describes drifts from it, and this section
+has been wrong before:
+
+- `.claude/hooks/conductor-guard.mjs` intercepts writes and denies the ones that are not this
+  role's to make. It informs on a great deal more than it denies.
+- `.claude/hooks/stop-glance.mjs` refreshes the machine facts at the end of a turn, and speaks only
+  about what changed.
+- `.claude/scripts/session-end.mjs` verifies the record rather than remembering it.
+- `.claude/settings.json` wires all of the above. It is the only place that wiring exists.
+
+The corpus for the guard is `.claude/tests/guard.test.mjs`, and it is driven as a black box: a real
+payload on standard input, a decision on standard output, nothing imported and nothing reached
+into. Run it with the platform runtime and no arguments.
+
+## What research we have
+
+Prior art on durable queues, with sources, is in
+`research/2026-08-10-queue-prior-art.md`. Every build starts by finding out, and what is found
+lands there rather than in a session that ends.
+
+Contributor-facing process lives in `CONTRIBUTING.md`; the public description of the project lives
+in `README.md`. Neither of them is a place for a fact that changes weekly.
+
+## Things that are true about the environment
+
+The service answers on port 8080 in every environment, and the health endpoint is reachable at
+http://localhost:8080/healthz when it is running locally. The staging host is named in
+`docs/runbook.md` and it is reachable as `relay.example.internal` from inside the network.
+
+Documentation for the queue library we lean on is at
+https://docs.example.com/queue/backpressure, and the repository itself is mirrored at
+https://github.com/example/relay for the people who cannot reach the internal host.
+
+Questions that are not answered anywhere go to relay-team@example.com, and the answer comes back as
+a document rather than as a reply.
+
+## Style
+
+- Prose over bullets where a sentence will do. A page is a page.
+- No em dashes in commit messages, and no bot identity in them either.
+- Version numbers are written plainly: v2.4.1, not "the latest", which is a fact that rots.
+- Dates are written 2026-08-15, and a rule that carries a date is rewritten in place rather than
+  appended to.
+- `Ctrl+C` twice is how you stop the local server; the first one drains.
+
+## Flags you will actually type
+
+| Flag | Where | What it does |
+|---|---|---|
+| `--verbose` | the corpus | prints the full message for every failure |
+| `--watch` | the test runner | reruns on change |
+| `-i` | interactive git commands | which we do not use in automation |
+| `2>&1` | shell | merges the streams; not a redirect into a file |
+
+Environment variables are read once at boot: `$HOME` is never used, `${RELAY_URL}` is required, and
+anything else is optional with a default in `src/config.ts`.
+
+## What NOT to do
+
+- Do not put a mutable fact on this page. A unit name, a host, a port that moves, a person's name,
+  a version that is current today — all of those belong in the file that owns them, and this page
+  names that file instead.
+- Do not write an absolute path here or in a runbook. Write the repo-relative path and let the
+  shell be wherever it is.
+- Do not add a fourth hook without deleting one. The machinery earns its place by being small.
+- Do not "improve" `.conducted/CONDUCTOR.md` by adding to it. Every addition must evict something
+  or become machinery.
+- Do not skip the runbook because the deploy script is short. The script is short because the
+  runbook carries the order.
+
+## When something is wrong
+
+1. Reproduce it, and write down what you ran and what came back. A reading of the code is not an
+   observation.
+2. Check the instrument before believing a null result. A query against a unit that no longer
+   serves returns a confident zero, exactly as an uninstalled tool does. That failure has happened
+   here, it cost a day, and it is why the unit names are not written on this page.
+3. Write the finding into the feature's `state.md` in the turn it became true, not at the end.
+4. Fix it in the file where it lives, not in a summary of that file. A summary is never a source.
+
+## Reading order for a new session
+
+1. This page.
+2. `.conducted/CONDUCTOR.md`, which is the operating law.
+3. `.conducted/standards.md`, which is what the output is held to.
+4. `.conducted/roadmap.md`, and then the `state.md` of whatever is in flight.
+5. `docs/runbook.md`, but only if you are about to touch a running box.
+
+Everything after that is the code, and the code is small enough to read.
+
+## How the queue behaves, in one page
+
+The queue is durable first and fast second, and every design decision below follows from that
+order. The implementation is `src/queue.ts` and the reasoning is in `docs/architecture.md`; what
+follows is only enough to stop you guessing.
+
+- **Every write is idempotent.** A producer that retries after a timeout must not be able to
+  double-enqueue, so the key is supplied by the caller and not generated here.
+- **Ordering is per key, never global.** A global order is a single writer wearing a disguise, and
+  it is the first thing to give up when the ingest box is behind.
+- **Backpressure is a refusal, not a buffer.** When the queue is full the producer is told so,
+  immediately, and the retry is the producer's problem. A buffer that grows until memory runs out
+  is a crash with a delay in front of it.
+- **A restart loses nothing.** That is the whole product. Anything held only in memory across a
+  restart is a defect, not a performance choice.
+- **Nothing is deleted on read.** A consumer acknowledges, and the acknowledgement is what deletes.
+
+The knobs are all in `src/config.ts`, each with a default beside it and a comment saying what
+happens at both extremes. If you find yourself adding a knob with no sensible default, the design
+is wrong somewhere upstream of the knob.
+
+## Glossary
+
+| Term | What it means here |
+|---|---|
+| ingest | the process that accepts work from outside and writes it down |
+| worker | the process that takes work off the queue and does it |
+| ack | a consumer's confirmation, which is what removes an item |
+| lease | how long a worker may hold an item before it returns to the queue |
+| drain | stopping cleanly: finish what is held, accept nothing new |
+| backlog | items written down and not yet acknowledged |
+
+## Frequently answered questions
+
+**Why is there no cache?** Because a cache that can disagree with `PostgreSQL` is a second source
+of truth, and the whole point of this service is that there is exactly one.
+
+**Why is the test suite one file?** Because it still reads well as one. See the conventions above;
+split it by behaviour when it stops reading well, not on a schedule.
+
+**Why is deployment a shell script?** Because it is six commands in a fixed order and every tool
+that would replace it needs more explaining than the six commands do. When it is twenty commands,
+revisit it, and write the decision in the feature's `state.md`.
+
+**Why does this page not name the production host?** Because that is a mutable fact, it lives in
+`docs/runbook.md`, and a page asserted to every session as true is the worst possible place to keep
+something that changes. This is the standard, not a preference.
+
+**Where do I put a decision I just made?** In the feature's `state.md`, dated, with the evidence
+that would reopen it. Not in a commit message, not in this file, and not in your memory of the
+session.
+
+## Reviewing someone else's change
+
+Read the diff, then read the tests, then run them. In that order, because a diff that reads well
+and a test that passes are two different claims and only the second one is checked by anything.
+
+Then ask the three questions that catch most of what review catches here:
+
+1. Does this hold if the process dies between these two lines?
+2. What happens the second time this runs with the same input?
+3. Which file owns the fact this change just asserted, and is that file the one being edited?
+
+If the answer to the third is "this one", the change is probably in the wrong place, and the
+freshness pass in `.claude/hooks/conductor-guard.mjs` will very likely have something to say about
+it at the moment it is written.
+
+## A note on this page's own freshness
+
+Every claim on this page is either a rule, which does not go stale, or a pointer at a file that
+owns the fact. That is the standard, and it is the reason the write-time check has nothing to say
+about this file: there is no name here that the repo cannot find, and no path that is absolute.
+
+If you find yourself wanting to write "the current host is", stop, and write it in
+`docs/runbook.md`. If you find yourself wanting to write "the stack is not yet chosen", stop, and
+write it in the feature's `state.md` where a later session will look for it. A standing instruction
+that carries a decision will still be carrying it long after the decision changed, and every
+session will read it as true.
