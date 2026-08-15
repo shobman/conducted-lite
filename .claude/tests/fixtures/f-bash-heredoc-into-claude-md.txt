@@ -1,0 +1,5 @@
+cat > CLAUDE.md <<'EOF'
+# CLAUDE.md
+
+The ingest box runs `relay-ingest-v2.service`.
+EOF

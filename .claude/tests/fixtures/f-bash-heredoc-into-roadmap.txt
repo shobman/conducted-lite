@@ -1,0 +1,5 @@
+cat > .conducted/roadmap.md <<'EOF'
+# Roadmap
+
+The ingest box runs `relay-ingest-v2.service`.
+EOF

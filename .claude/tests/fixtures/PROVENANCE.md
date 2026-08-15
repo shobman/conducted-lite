@@ -139,6 +139,64 @@ matched — `writeFileSync` through `\\?\C:\…`, `\\.\C:\…`, `\\?\UNC\localho
 `\\localhost\c$\…`, `//localhost/c$/…`, `//127.0.0.1/c$/…` and `//<hostname>/c$/…` each created a
 real file; `//./c$/…` failed with ENOENT and is therefore not a spelling of anything.
 
+### The `f-*.txt` set — instruction freshness (2026-08-15)
+
+**These are the only fixtures that are CONTENT rather than a command.** Everything above is a
+command line fed to `tool_input.command`; the `f-*.txt` files are the bytes written to `CLAUDE.md`
+and are fed to `tool_input.content` — except the three named `f-bash-*.txt`, which are commands like
+the rest of this page. Written for this corpus. None is a quotation of a field command, so the rule
+at the top of this page does not bite; the two field incidents they stand for are described in
+`.conducted/work/instruction-freshness/problem.md` and neither was transcribed anywhere this repo
+can reach.
+
+They are measured against a **synthetic lite repo built in `tmpdir()` by `cases.mjs`**, not against
+this checkout, and the reason is not tidiness. The freshness pass answers "can this repo find that
+name" by walking a tree — and a fixture holding the content under test *lives in this tree*, so
+every name in it would be found in the fixture itself and every flag case would go quiet for a
+reason that has nothing to do with the guard. The synthetic tree is listed in `FRESH_TREE` in
+`cases.mjs`, ordinary files with ordinary contents, and it separates the two questions the pass
+asks: `src/queue.ts` is a file that EXISTS, while `relay-ingest.service` is a name the tree only
+MENTIONS, in `docs/runbook.md`, and both must be silent.
+
+- `f-abs-windows-path.txt`, `f-abs-gitbash-path.txt`, `f-abs-unix-home-paths.txt` — the absolute
+  path class. The second and third are the two shapes that were **measured wrong before they were
+  measured right**: a bare path with a space in it was reported as a stub plus a nonsense missing
+  name, and three paths in one comma-separated sentence were reported as one token with one of them
+  also reported twice. Both fixtures exist to hold those fixes in place.
+- `f-name-backticked-missing.txt`, `f-name-path-missing.txt` — the missing-name class, backticked
+  and bare.
+- `f-name-mentioned-only.txt`, `f-name-exists-as-file.txt` — the controls, and they are the half
+  that keeps this from being a nag: a name the repo mentions and a name the repo holds are both
+  found, and neither is spoken about.
+- `f-name-only-in-the-file-itself.txt` — `retired-relay.service` appears in the synthetic tree
+  **exactly once, in `CLAUDE.md` itself**. Read it with `f-name-mentioned-only.txt`: together they
+  say the file being written is excluded from its own search and nothing else is.
+- `f-malformed-binary.txt` — real bytes, not a description of bytes: a zip header, NULs and a
+  gzip magic number, written with `Buffer.from` so the NULs survive a checkout.
+- `f-bash-heredoc-into-claude-md.txt` / `f-bash-heredoc-into-roadmap.txt` — a matched pair
+  differing only in the redirect target, which is the whole measurement: the shape does not decide,
+  the target does. `f-bash-read-claude-md.txt` is the read control.
+- `f-quiet-long-instruction-file.txt` — **the quiet test.** A ~275-line instruction file of the kind
+  somebody actually maintains: prose, tables, fenced blocks, links, flags, version numbers, tool
+  names, and about fifty backticked spans. It must produce ZERO findings. Every path in it names a
+  file that exists in the synthetic tree and every non-path name is one that tree mentions; that is
+  the point, not a convenience — it is what "a standing instruction that carries law and pointers"
+  looks like when the check is run over it.
+- `f-quiet-urls-and-versions.txt` — the bound written as a document: URLs, emails, hostnames,
+  version numbers, flags, `2>&1`, `${VARS}`, `<placeholders>`, `docs/**.md`, a `~/` path, and
+  slash-carrying English like `and/or` and `application/json`. All silence, by construction.
+
+**Any `f-quiet-*.txt` dropped into this directory becomes a case on the next run**, with no edit to
+`cases.mjs`. A real instruction file from another repo names that repo's paths, so point the pass at
+that repo with `CONDUCTED_FRESHNESS_REPLAY=<file> CONDUCTED_FRESHNESS_REPLAY_ROOT=<root>`, which
+adds one more quiet case. Nothing is tuned to make either pass.
+
+**The mutant is not a fixture and is not committed.** `cases.mjs` reads the guard at run time and
+writes a copy into `tmpdir()` with one `throw` inserted at the top of the freshness entry point, to
+measure the isolation claim from outside the process. If the anchor ever stops existing, the three
+cases that use it fail saying isolation is UNMEASURED — which is the honest report, because at that
+point the corpus can no longer see what it claims to be checking.
+
 ## Not this guard's, and not verified
 
 `u-miq-*.txt` are quoted in `C:\code\repos\miq\docs\notes\2026-08-13-conducted-lite-field-notes.md`

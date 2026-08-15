@@ -354,7 +354,7 @@
 //                                 NOTHING. One shape, one exit; there is no second pass hunting the
 //                                 line for a candidate to blame.
 //   · any unexpected throw        fails open
-import { existsSync, statSync, realpathSync } from 'node:fs';
+import { existsSync, statSync, realpathSync, readdirSync, openSync, readSync, closeSync } from 'node:fs';
 import { hostname } from 'node:os';
 import { join, dirname, resolve as pathResolve, relative as pathRelative, isAbsolute } from 'node:path';
 
@@ -1093,7 +1093,14 @@ function heredocAt(s, i) {
 }
 
 // 1 where the offset is unquoted shell code, 0 where the shell would read a literal character.
-function codeMask(cmd) {
+//
+// `bodies`, WHEN PASSED, is filled with each heredoc body's `{ delim, from, to }` offsets in `cmd`.
+// It is an optional out-parameter for the same reason words()'s `spans` is: the freshness pass below
+// needs to know what a `cat > CLAUDE.md <<'EOF'` actually writes, and that is the body this parser
+// already walks. A second heredoc reader is how the two drift apart — this file has written that
+// sentence for the in-place shape test, for the word splitter and for the wrapper verb, and it is
+// not going to mint a fourth. Callers that pass nothing get exactly the behaviour they always got.
+function codeMask(cmd, bodies) {
   const s = String(cmd);
   const mask = new Uint8Array(s.length).fill(1);
   const off = (from, to) => { for (let k = from; k < to && k < s.length; k++) mask[k] = 0; };
@@ -1104,15 +1111,20 @@ function codeMask(cmd) {
   const consumeBodies = () => {
     while (pending.length) {
       const h = pending.shift();
+      const from = i;
+      let to = i;
       while (i < s.length) {
         let eol = s.indexOf('\n', i);
         if (eol < 0) eol = s.length;
         const line = s.slice(i, eol).replace(/\r$/, '');
         const cand = h.strip ? line.replace(/^\t+/, '') : line;
         off(i, eol);                            // body line, or the delimiter line: neither is code
+        const lineStart = i;
         i = eol < s.length ? eol + 1 : eol;
-        if (cand === h.delim) break;
+        if (cand === h.delim) { to = lineStart; break; }
+        to = i;
       }
+      bodies?.push({ delim: h.delim, from, to });
     }
   };
 
@@ -1346,6 +1358,387 @@ function scanBash(cmd, cwd, root, depth = 0) {
   return null;
 }
 
+// ============================================================================================
+// INSTRUCTION FRESHNESS — IT ATTACHES WORDS TO A WRITE OF `CLAUDE.md` AND DOES NOTHING ELSE.
+// `.conducted/work/instruction-freshness/` is the why; this is the how, and the whole of it.
+//
+// THE FIELD CASE IS TWO INCIDENTS, and neither was caught by anything that reads a file later.
+// miq's instruction file named a service unit that had moved: an overnight session queried the
+// retired unit, got a confident zero, and wrote "no HTTP for 50 minutes" into a feature's state.md
+// as an observation. Re-queried against the live unit the next day, the poller had run every three
+// seconds for 251 minutes. A stale line in a standing instruction manufactured a defect that did
+// not exist. The second is a runbook line written with an absolute Windows toolchain path, correct
+// in one shell and wrong in the two others the same repo uses — wrong within MINUTES of being
+// written, so age was never the signal.
+//
+// SO THE CHECK IS AT THE WRITE, NOT AT THE READ. Both lines entered the file at a write, and the
+// one context that can fix or justify a line is the context typing it. A session-start version of
+// this would fire every session until the line was edited — including on a path that is correct and
+// deliberate — which is the wallpaper mechanism `nag-becomes-wallpaper` shipped a fix for the same
+// week. It fires ONCE, on the write, with no memory, no cache, no allow-list and no timestamp.
+//
+// IT NEVER BLOCKS, AND THE ISOLATION IS THE LOAD-BEARING PART. CONDUCTOR.md: "It informs. It never
+// blocks and it never decides." A blocked write to the briefing page would be the machine deciding
+// what instruction the conductor may keep; and a crash in here that swallowed a DENY would disable
+// the security half of this guard, which is worse. Both are answered by ORDER plus a catch:
+//   · the pass is invoked ONLY from a settled verdict — after `agent_id` has already decided allow,
+//     after classify() has already decided not-denied, after scanBash() has already returned null.
+//     There is no call site on the deny path, so nothing in here can be reached before a deny is
+//     printed. That ordering is what the corpus's mutant cases measure: main() is wrapped in
+//     `try { main(data) } catch { quiet() }`, so a throw ANYWHERE ahead of a deny() would turn that
+//     deny into a silent allow.
+//   · freshnessThenQuiet() wraps the whole pass in its own catch and then quiets regardless, so an
+//     unreadable tree, malformed content or an outright throw flags nothing and blocks nothing.
+// A write the guard would allow still proceeds; a write it would deny is still denied.
+//
+// THE TOKEN BOUND IS DECLARED AND HARD: BACKTICKED SPANS AND PATH-SHAPED STRINGS, NEVER PROSE. A
+// sentence is never a finding. Judging prose is what the first draft of this feature was killed
+// for: MukFork's own stale line — "the stack is not chosen" — carries no token any search can hold,
+// so a detector able to catch it would have to read meaning, and a check that flags prose it merely
+// finds suspicious is ignored within a week. Two classes only:
+//
+//   A. AN ABSOLUTE, PLATFORM-SPECIFIC PATH — `C:\…`, `C:/…`, `/c/…`, `/mnt/c/…`, `/Users/…`,
+//      `/home/<name>/…`. No search is made and none is needed: the shape itself is the finding.
+//   B. A BACKTICKED SPAN OR PATH-SHAPED TOKEN THE REPO CANNOT FIND, by name or by mention.
+//
+// WHAT IS OUT, named rather than smuggled:
+//   · The residue solution.md declares: a name that moves AFTER a compliant write, and a write this
+//     hook never sees — a hand edit in an editor, a merge, a pull, a checkout. The standard ("a
+//     standing instruction carries law and pointers, never a mutable fact") is what covers those.
+//   · Bash coverage is ONE SHAPE: a heredoc body redirected or tee'd into `CLAUDE.md`. Everything
+//     else a shell can do to that file writes content this hook cannot read, and inventing content
+//     is worse than missing it. The Edit/Write path is the guarantee here exactly as it is above.
+//   · A CLAUDE.md anywhere but the repo root is not this file — OWNED only grants the root one, so
+//     a nested one is denied to the main thread anyway and judged by nobody here.
+//   · A NAME THIS PASS CANNOT ASK ABOUT IS NOT ASKED ABOUT, and each of these is silence by
+//     construction rather than by accident: a `~`-rooted path (not this repo's to find), a dotfile
+//     standing alone (`.env` is not name-shaped), an extensionless path (`src/queue`), a hostname
+//     under a common TLD, a URL, an email, and any token carrying a glob, a variable or a `<…>`
+//     placeholder — the same refusal to guess classify() makes about a path it cannot resolve.
+//   · A mention past the first megabyte of a single file is not seen, and a mention that exists only
+//     inside a binary is not a mention. Both are declared costs of a bounded walk.
+//   · THE FILE BEING WRITTEN CANNOT CORROBORATE ITSELF. `CLAUDE.md` is excluded from the search, or
+//     every stale name already in it would vouch for the line that is being rewritten.
+//   · If the walk hits its caps the tree was NOT fully searched, so class B says NOTHING. An
+//     incomplete search that claims "nothing mentions it" is non-negotiable 3's confident zero.
+// `worktrees/` is skipped because CONDUCTOR.md says anything that WALKS THE TREE must skip it.
+//
+// WHAT IT COSTS, MEASURED RATHER THAN ASSERTED — 15 invocations each, out of process, on this
+// machine and this checkout (188 files): an ordinary Bash call 35ms, a denied Write 35ms, a write of
+// `CLAUDE.md` that walks the whole tree 89ms. The first two are node startup and are UNCHANGED — a
+// call that does not name `CLAUDE.md` does no filesystem work here at all, because the pre-filter is
+// a string test on the payload. The 54ms is paid only by a write of the standing instruction, which
+// happens a handful of times in a repo's life. Session start pays nothing: nothing from this
+// feature runs there, which is an acceptance criterion and not an optimisation.
+// ============================================================================================
+const INSTRUCTION_REL = FOLD_CASE ? /^CLAUDE\.md$/i : /^CLAUDE\.md$/;
+const FRESH_SKIP_DIR = new Set(['.git', 'node_modules', 'worktrees', '.worktrees']);
+const FRESH_MAX_FILES = 4000;
+const FRESH_MAX_BYTES = 1_000_000;
+const FRESH_BUDGET_MS = 1_500;
+const FRESH_MAX_NAMED = 3;
+const FRESH_MAX_TOKENS = 200;
+
+// The four absolute, platform-specific shapes, each anchored on a boundary a shell or a sentence
+// would put in front of a path. `/mnt/<letter>/` is matched before the bare `/<letter>/` so the
+// longer spelling wins; duplicates and prefixes are dropped when the findings are assembled.
+const ABS_EDGE = "(?:^|[\\s'\"`(\\[{<>|=,;:])";
+const ABS_TAIL = "[^\\s'\"`)\\]}<>|]*";
+const ABS_HEADS = ['[A-Za-z]:[\\\\/]', '/mnt/[a-z]/', '/[a-z]/', '/(?:Users|home)/[A-Za-z0-9._-]+'];
+const ABS_SHAPES = ABS_HEADS.map((h) => new RegExp(`${ABS_EDGE}(${h}${ABS_TAIL})`, 'g'));
+const ABS_HEAD_ONLY = new RegExp(`^(?:${ABS_HEADS.join('|')})`);
+// `C:\Program Files\…` AND `/c/Program Files/git/bin` ARE ONE PATH, NOT A PATH AND SOME PROSE. The
+// scan above stops at the first space, and measured on a real payload that cost twice: class A named
+// the stub `/c/Program`, and class B then read the remainder `Files/git/bin` as a second, missing
+// name — one path, two findings, one of them nonsense. A following space-separated word is taken as
+// a CONTINUATION only when it carries a separator of its own, which is what a path fragment has and
+// what the next word of a sentence does not. Bounded at four words: past that it is a sentence.
+//
+// AND A CONTINUATION IS NEVER THE NEXT PATH. Measured on `/mnt/c/work/miq, /Users/simon/bin/poller`:
+// the second path carries separators, so it read as a continuation of the first and two paths were
+// reported as one — while the second was ALSO reported in its own right, so the write got a finding
+// naming a token that appears nowhere in it. A continuation therefore may not begin with a separator
+// or a drive letter, and a base that ends in sentence punctuation has already ended.
+const ABS_CONTINUATION = /^(?:[ \t](?![\\/])(?![A-Za-z]:[\\/])[^\s'"`)\]}<>|]*[\\/][^\s'"`)\]}<>|]*){1,4}/;
+// A candidate is trimmed of the punctuation a sentence puts AFTER a path, never of anything inside.
+const trimEdge = (s) => String(s).replace(/^[\s'"`([{]+/, '').replace(/[\s'"`)\]},.;:!?]+$/, '');
+
+// A backticked span, which is the one place a standing instruction says "this is a name" out loud.
+// Bounded to a single line: a fenced block's backticks are not a span, and a span that swallowed a
+// paragraph would be the prose judgement this whole pass refuses.
+function backtickSpans(text) {
+  const out = [];
+  for (const m of String(text).matchAll(/`([^`\n]{1,200})`/g)) {
+    const s = m[1].trim();
+    if (s) out.push(s);
+  }
+  return out;
+}
+
+// CLASS A. The shape is the finding, so this looks at the content and at nothing else. A backticked
+// span that STARTS with one of the shapes is taken whole, which is how `/c/Program Files/git` keeps
+// its space; the bare scan then stops at the first space, and a bare token that is only a prefix of
+// a span already found is dropped rather than reported twice.
+function absolutePaths(content) {
+  const found = [];
+  const add = (t) => {
+    const s = trimEdge(t);
+    if (s && ABS_HEAD_ONLY.test(s) && !found.includes(s)) found.push(s);
+  };
+  const s = String(content);
+  for (const span of backtickSpans(s)) if (ABS_HEAD_ONLY.test(span)) add(span);
+  for (const re of ABS_SHAPES) {
+    for (const m of s.matchAll(re)) {
+      const tail = /[,;:]$/.test(m[1]) ? null : s.slice(m.index + m[0].length).match(ABS_CONTINUATION);
+      add(m[1] + (tail ? tail[0] : ''));
+    }
+  }
+  return found.filter((t) => !found.some((o) => o !== t && o.startsWith(t)));
+}
+
+// A suffix that is a TOP-LEVEL DOMAIN is not a file extension, and `example.com` is not a missing
+// file. Small and declared: everything outside it — `.md`, `.mjs`, `.service`, `.sh` — is read as a
+// name. The cost is a hostname under a suffix not on this list, which reads as a name and is
+// searched for like one.
+const TLD = /^(?:com|org|net|io|ai|dev|co|uk|au|edu|gov|app|xyz|me|info|cloud|page)$/i;
+const DOMAIN_FIRST = /^[A-Za-z0-9-]+\.[A-Za-z0-9-]+\.?[A-Za-z0-9-]*$/;
+const DOTTED_NAME = /^[A-Za-z0-9_][A-Za-z0-9_.+~-]*\.([A-Za-z][A-Za-z0-9]{0,11})$/;
+
+// IS THIS A NAME THIS PASS IS ALLOWED TO ASK ABOUT? Everything here narrows; nothing widens. A
+// token carrying a glob, a variable, a placeholder or whitespace is not knowably a name — the same
+// refusal to guess classify() makes about a path — and a URL, an email and a hostname are names of
+// things that are not in this repo by definition.
+function nameShaped(raw) {
+  const t = String(raw);
+  if (t.length < 3 || t.length > 120) return null;
+  if (/[\s*?{}$<>|\\!]/.test(t)) return null;               // globs, variables, placeholders, prose
+  if (/^[-+]/.test(t)) return null;                         // a flag is not a file
+  if (/^\.{3,}/.test(t)) return null;                       // an elision is not a path
+  if (t.includes('://') || t.includes('@') || /^https?:/i.test(t)) return null;
+  if (t.startsWith('~')) return null;                       // a home path is not this repo's to find
+  if (!/[A-Za-z]/.test(t)) return null;
+  if (ABS_HEAD_ONLY.test(t)) return null;                   // class A owns this token
+  const body = t.replace(/\/+$/, '');
+  if (!body || body === '.' || body === '..') return null;
+  if (body.includes('/')) {
+    // A SLASH IS NOT ENOUGH TO MAKE A PATH, and this is where the "never prose" bound is actually
+    // held. `and/or`, `input/output`, `TODO/FIXME` and `application/json` are all slash-carrying
+    // ENGLISH, and every one of them would be a missing file. So the last segment must carry an
+    // extension, or the token must end in a `/` and be naming a directory out loud. What that costs
+    // is an extensionless path — `src/queue`, `.claude/hooks` — which is not asked about at all.
+    const last = body.split('/').pop();
+    if (!/\.[A-Za-z][A-Za-z0-9]{0,11}$/.test(last) && !/\/$/.test(t)) return null;
+    const first = body.replace(/^\.{1,2}\//, '').split('/')[0];
+    const dot = first.lastIndexOf('.');
+    if (DOMAIN_FIRST.test(first) && dot > 0 && TLD.test(first.slice(dot + 1))) return null;
+    return body;
+  }
+  const m = body.match(DOTTED_NAME);
+  if (!m || TLD.test(m[1])) return null;
+  return body;
+}
+
+// The candidates, with WHERE each was found — a finding has to be able to say "in backticks" or "as
+// a path", because that is the bound it is claiming to have stayed inside.
+// `absTokens` is class A's answer, and a candidate that is a FRAGMENT of one of those is not a
+// second name — see ABS_CONTINUATION. The token is already reported, once, by the class that owns it.
+function nameCandidates(content, absTokens = []) {
+  const seen = new Map();
+  const add = (raw, where) => {
+    const t = nameShaped(trimEdge(raw));
+    if (!t || seen.has(t) || seen.size >= FRESH_MAX_TOKENS) return;
+    if (absTokens.some((a) => a.includes(t))) return;
+    seen.set(t, where);
+  };
+  for (const s of backtickSpans(content)) add(s, 'in backticks');
+  const bare = /(?:^|[\s'"`(\[{<>|=,;])((?:\.{1,2}\/)?[A-Za-z0-9_.+~-]+(?:\/[A-Za-z0-9_.+~-]+)+\/?)/g;
+  for (const m of String(content).matchAll(bare)) add(m[1], 'as a path');
+  return [...seen].map(([token, where]) => ({ token, where }));
+}
+
+// THE SEARCH, AND WHAT IT IS ALLOWED TO CONCLUDE. Two questions per token, in cost order: is there a
+// file or directory of that name, and does any file's text mention it. `complete` is the instrument
+// check — a walk that hit its caps has not searched the tree, and a "nothing mentions it" from an
+// unfinished search is exactly the confident zero non-negotiable 3 warns about.
+function searchRepo(root, tokens, excludeAbs) {
+  const want = new Set(tokens);
+  for (const t of [...want]) {
+    try { if (existsSync(join(root, t))) want.delete(t); } catch { /* the walk will ask again */ }
+  }
+  const started = Date.now();
+  const stack = [root];
+  let files = 0;
+  let complete = true;
+  while (stack.length && want.size) {
+    if (files >= FRESH_MAX_FILES || Date.now() - started > FRESH_BUDGET_MS) { complete = false; break; }
+    const dir = stack.pop();
+    let entries;
+    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { complete = false; continue; }
+    for (const e of entries) {
+      const abs = join(dir, e.name);
+      const rel = pathRelative(root, abs).replace(/\\/g, '/');
+      for (const t of [...want]) if (e.name === t || rel === t || rel.endsWith('/' + t)) want.delete(t);
+      if (!want.size) break;
+      if (e.isDirectory()) {
+        if (!FRESH_SKIP_DIR.has(e.name)) stack.push(abs);
+        continue;
+      }
+      if (!e.isFile() || abs === excludeAbs) continue;
+      files++;
+      let text = '';
+      let fd = null;
+      try {
+        fd = openSync(abs, 'r');
+        const buf = Buffer.alloc(FRESH_MAX_BYTES);
+        const n = readSync(fd, buf, 0, FRESH_MAX_BYTES, 0);
+        text = buf.toString('utf8', 0, n);
+      } catch { complete = false; } finally { if (fd !== null) { try { closeSync(fd); } catch { /* closed */ } } }
+      if (!text || text.includes('\u0000')) continue;        // unread, or binary: not a mention
+      for (const t of [...want]) if (text.includes(t)) want.delete(t);
+    }
+  }
+  return { files, complete, missing: [...want] };
+}
+
+const tick = (s) => '`' + s + '`';
+const listOf = (xs) => (xs.length === 1 ? xs[0] : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+// A finding names at most three tokens and counts the rest. A page is a page.
+function named(xs) {
+  const head = xs.slice(0, FRESH_MAX_NAMED);
+  const rest = xs.length - head.length;
+  return listOf(head) + (rest > 0 ? `, and ${rest} more` : '');
+}
+
+// THE FINDINGS, IN THE SHAPE solution.md SPECIFIES: name the token, say what was searched, say what
+// was and was not found, and end by saying the write proceeded.
+function freshnessFindings(content, root, excludeAbs) {
+  const out = [];
+  const abs = absolutePaths(content);
+  if (abs.length) {
+    out.push(
+      `The content written to ${tick('CLAUDE.md')} carries an absolute, platform-specific path: ` +
+      `${named(abs.map(tick))}. Nothing was searched for it and nothing needed to be — this repo is ` +
+      `worked in under more than one shell, so a path correct in one is wrong in the others, and an ` +
+      `absolute platform path is suspect the moment it is written rather than once it has gone ` +
+      `stale. Written anyway — flagged, never blocked.`,
+    );
+  }
+  const cands = nameCandidates(content, abs);
+  if (cands.length) {
+    const res = searchRepo(root, cands.map((c) => c.token), excludeAbs);
+    const missing = cands.filter((c) => res.missing.includes(c.token));
+    if (res.complete && missing.length) {
+      const wheres = [...new Set(missing.map((c) => c.where))];
+      const plural = missing.length > 1;
+      out.push(
+        `The content written to ${tick('CLAUDE.md')} names ${named(missing.map((c) => tick(c.token)))} ` +
+        `${listOf(wheres)}; nothing in this repo mentions ${plural ? 'them' : 'it'}. Searched ` +
+        `${res.files} file${res.files === 1 ? '' : 's'} under the repo root — ${tick('.git')}, ` +
+        `${tick('node_modules')}, ${tick('worktrees')} and ${tick('CLAUDE.md')} itself excluded — for ` +
+        `a file or directory of that name and for the name in any file's text: no path matches, and ` +
+        `no file mentions ${plural ? 'them' : 'it'}. Written anyway — flagged, never blocked.`,
+      );
+    }
+  }
+  return out.join('\n\n');
+}
+
+// Is this raw target the repo-root `CLAUDE.md` of a lite tree? Asked through the SAME classify() and
+// relOf() every other branch uses; no second reading of what is owned.
+function isInstructionFile(raw, cwd, root) {
+  return classify(raw, cwd, root) === 'owned' && INSTRUCTION_REL.test(relOf(raw, cwd, root));
+}
+
+// The bytes an Edit/Write is putting into the file, and ONLY the new ones: an Edit's `old_string` is
+// what is leaving, and flagging a line for what it replaces would fire on a write that removes the
+// stale name.
+function writtenContent(ti) {
+  const parts = [];
+  const push = (v) => { if (typeof v === 'string' && v) parts.push(v); };
+  push(ti.content);
+  push(ti.new_string);
+  push(ti.new_source);
+  if (Array.isArray(ti.edits)) for (const e of ti.edits) if (e && typeof e === 'object') push(e.new_string);
+  return parts.join('\n');
+}
+
+// Bash, one shape: a heredoc body redirected or tee'd into `CLAUDE.md`. The body comes out of the
+// mask that already walks it, and the target out of the same REDIRECT/tee reading scanBash uses.
+function bashInstructionContent(cmd, cwd, root) {
+  if (!/CLAUDE\.md/i.test(cmd)) return null;
+  const bodies = [];
+  const isCode = codeMask(cmd, bodies);
+  if (!bodies.length) return null;
+  let writesIt = false;
+  for (const { text: seg, at } of segments(String(cmd), isCode)) {
+    for (const m of seg.matchAll(REDIRECT)) {
+      const target = m[1] ?? m[2] ?? m[3];
+      if (!isCode[at + m.index + m[0].indexOf('>')]) continue;
+      if (isInstructionFile(target, cwd, root)) writesIt = true;
+    }
+    for (const t of teeTargets(seg)) if (isInstructionFile(t, cwd, root)) writesIt = true;
+  }
+  if (!writesIt) return null;
+  return bodies.map((b) => String(cmd).slice(b.from, b.to)).join('\n');
+}
+
+// THE ENTRY POINT, AND THE ONLY ONE. Everything above is reachable from here and from nowhere else,
+// which is what makes the isolation testable from outside: the corpus mutates this function to throw
+// and asserts that a deny still denies, an allow still allows, and the flag falls silent.
+function freshnessNote(data) {
+  const tool = data.tool_name || '';
+  const ti = data.tool_input;
+  if (!ti || typeof ti !== 'object') return null;
+  let content = null;
+  let targetAbs = null;
+  let root = null;
+  if (WRITE_TOOLS.has(tool)) {
+    const target = [ti.file_path, ti.filePath, ti.path, ti.notebook_path]
+      .find((v) => typeof v === 'string' && v !== '');
+    if (!target || !/CLAUDE\.md/i.test(target)) return null;      // no filesystem work until it might be
+    const cwd = resolveCwd(data.cwd);
+    const cwdRoot = findRoot(cwd) || (process.env.CLAUDE_PROJECT_DIR ? findRoot(resolveCwd(process.env.CLAUDE_PROJECT_DIR)) : null);
+    if (!isInstructionFile(target, cwd, cwdRoot)) return null;
+    targetAbs = absOf(target, cwd);
+    root = rootOf(targetAbs, cwdRoot);
+    content = writtenContent(ti);
+  } else if (tool === 'Bash') {
+    const cmd = ti.command;
+    if (typeof cmd !== 'string' || !/CLAUDE\.md/i.test(cmd)) return null;
+    const cwd = resolveCwd(data.cwd);
+    const cwdRoot = findRoot(cwd) || (process.env.CLAUDE_PROJECT_DIR ? findRoot(resolveCwd(process.env.CLAUDE_PROJECT_DIR)) : null);
+    content = bashInstructionContent(cmd, cwd, cwdRoot);
+    if (content === null) return null;
+    targetAbs = absOf('CLAUDE.md', rootOf(absOf('CLAUDE.md', cwd), cwdRoot) || cwd);
+    root = rootOf(targetAbs, cwdRoot);
+  } else {
+    return null;
+  }
+  if (!root || typeof content !== 'string' || !content.trim()) return null;
+  const note = freshnessFindings(content, root, targetAbs);
+  return note || null;
+}
+
+// REPORT-ONLY, AND THE SHAPE OF THE OUTPUT SAYS SO. No `permissionDecision` field is written, so
+// nothing here can allow or deny: the finding rides out as context for the session that is writing,
+// beside a plain sentence for the human. Exit is still 0, as it is on every other path in this file.
+function emitContext(text) {
+  process.stdout.write(JSON.stringify({
+    systemMessage: text,
+    hookSpecificOutput: { hookEventName: 'PreToolUse', additionalContext: text },
+  }));
+}
+
+// Called ONLY where the verdict is already settled and is an allow. The catch is the second half of
+// acceptance criterion 6 — the first half is that there is no call site anywhere on the deny path.
+function freshnessThenQuiet(data) {
+  try {
+    const note = freshnessNote(data);
+    if (note) emitContext(note);
+  } catch { /* fail open, silently: the verdict was decided before this ran and it stays decided */ }
+  quiet();
+}
+
 // ------------------------------------------------------------------------------------------- deny
 function deny(reason) {
   process.stdout.write(JSON.stringify({
@@ -1359,8 +1752,11 @@ function deny(reason) {
 }
 
 function main(data) {
-  // A dispatched builder is the one who is SUPPOSED to be writing. Out before any other work.
-  if (data.agent_id) quiet();
+  // A dispatched builder is the one who is SUPPOSED to be writing. Out before any other work — and
+  // the verdict is DECIDED here, which is why the freshness pass may run on the way out: a builder
+  // writing the standing instruction is still writing the standing instruction. Nothing it does can
+  // reach a deny below it.
+  if (data.agent_id) return freshnessThenQuiet(data);
 
   const tool = data.tool_name || '';
   if (tool !== 'Bash' && !WRITE_TOOLS.has(tool)) quiet();
@@ -1384,7 +1780,7 @@ function main(data) {
     const target = [ti.file_path, ti.filePath, ti.path, ti.notebook_path]
       .find((v) => typeof v === 'string' && v !== '');
     if (target === undefined) quiet();
-    if (classify(target, cwd, root) !== 'denied') quiet();
+    if (classify(target, cwd, root) !== 'denied') return freshnessThenQuiet(data);
     const rel = relOf(target, cwd, root);
     return deny(
       `Non-negotiable 1: This ${tool} of ${rel} is denied — the conductor dispatches, never builds. ` +
@@ -1396,7 +1792,7 @@ function main(data) {
   const cmd = ti.command;
   if (typeof cmd !== 'string' || !cmd) quiet();
   const hit = scanBash(cmd, cwd, root);
-  if (!hit) quiet();
+  if (!hit) return freshnessThenQuiet(data);   // the verdict is settled and it is an allow
   // A DENY NEVER INVENTS THE FILE IT IS DENYING. When the scan cannot resolve a target it says so,
   // in those words. The alternative is what the field saw: `io.open`, a function name scraped out of
   // a script body, presented as the path being written; and `ramen.jpg`, a filename that appears

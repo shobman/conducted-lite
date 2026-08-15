@@ -1,0 +1,4 @@
+# CLAUDE.md
+
+The checkout is at /home/deploy/relay, the mount is /mnt/c/work/relay and the
+laptop copy is /Users/simon/code/relay.
