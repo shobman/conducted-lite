@@ -4,27 +4,28 @@ One command per file, bytes only, no comments — a fixture is the command, not 
 This page is the record of which bytes are a transcript's and which are not, because that
 distinction has twice decided a diagnosis on this feature.
 
-**The rule these follow:** a quotation of a command is a summary of it. A reconstruction of mukfork's
-`node -e` from a prose description hit a different branch of the guard than the real command did and
-produced a wrong reading of which branch was at fault. So the field commands below are `sed`-copied
-out of the note, never retyped.
+**The rule these follow:** a quotation of a command is a summary of it. A reconstruction of the field
+repo's `node -e` from a prose description hit a different branch of the guard than the real command
+did and produced a wrong reading of which branch was at fault. So the field commands below are
+`sed`-copied out of the note, never retyped.
 
-## Copied from a field note, unmodified
+## Copied from a field note
 
-Source: `C:\code\repos\mukfork\docs\field-notes\2026-08-13-maintainer-questions.md`, which quotes
-the mukfork main-session transcript
-`~/.claude/projects/C--code-repos-mukfork/307243ed-d214-4345-b128-d9a52cdde1bb.jsonl` with 1-indexed
+Source: deployment A's field note `docs/field-notes/2026-08-13-maintainer-questions.md`, which quotes
+that deployment's main-session transcript
+`~/.claude/projects/<deployment A>/307243ed-d214-4345-b128-d9a52cdde1bb.jsonl` with 1-indexed
 line numbers.
 
 | fixture | note lines | transcript line |
 |---|---|---|
-| `a2-mukfork-4399-cp-glob.txt` | 91–93 | 4399, denied at 4400 |
-| `a4-mukfork-3904-argv-target.txt` | 106–120 | 3904, denied at 3905 |
-| `a5-mukfork-2054-heredoc.txt` | 161–175 | 2054, denied at 2055 |
+| `a2-field-4399-cp-glob.txt` | 91–93 | 4399, denied at 4400 |
+| `a4-field-3904-argv-target.txt` | 106–120 | 3904, denied at 3905 |
+| `a5-field-2054-heredoc.txt` | 161–175 | 2054, denied at 2055 |
 
 ### Bytes that are NOT the transcript's, listed rather than smoothed over
 
-The note elides. Every elision is recorded here; none was invented or filled in.
+The note elides, and this repo substitutes one token. Every departure from the transcript's bytes is
+recorded here; none was invented or filled in.
 
 - **`a2`** — the session UUID in the scratchpad path is shortened to `307243ed-...` in the note. The
   path is under `%LOCALAPPDATA%\Temp` either way, so it classifies as outside the repo either way,
@@ -35,10 +36,22 @@ The note elides. Every elision is recorded here; none was invented or filled in.
   elisions are not load-bearing for this case. It is still not byte-for-byte, and that is why it is
   said here.
 - **`a5`** — no elisions. Complete as quoted.
+- **THE DEPLOYMENT'S NAME IS SUBSTITUTED, everywhere it appeared, 2026-08-15.** Transcript-copied;
+  project name substituted with the neutral token `fieldapp` at every byte that carried it — in `a2`
+  the scratchpad path `…/Temp/claude/C--code-repos-fieldapp/…` and both `cp` sources
+  `/c/code/repos/fieldapp/docs/product/assets/…`; in `a4` the same scratchpad path; and in
+  `b-pr-body-arrow.txt` and `u-field-gh-pr-body.txt` the filename
+  `server__fieldapp-server__appsettings.json`. The six fixture FILENAMES that carried a project name
+  were renamed the same way, to `a2-field-…`, `a4-field-…`, `a5-field-…` and `u-field-…`, and every
+  reference in `cases.mjs` and `guard.test.mjs` moved with them. The reason is a ruling that nothing
+  shipping into an adopting repo names another of the owner's projects. **The SHAPE is untouched** —
+  same separators, same depth, same extensions, same character classes on either side — and the guard
+  parses structure, not vocabulary, so no fixture's expected verdict moves. Every measurement, line
+  number and issue number in this page and in `cases.mjs` is the transcript's, unchanged.
 
 ## Derived from a fixture above, by one deliberate change each
 
-Generated from `a5-mukfork-2054-heredoc.txt` so that they differ from it in exactly one dimension.
+Generated from `a5-field-2054-heredoc.txt` so that they differ from it in exactly one dimension.
 
 - `a5-control-no-filename-in-search.txt` — the two filenames inside the `old2` **search string**
   replaced with prose. Nothing about the write expression changed.
@@ -74,11 +87,11 @@ tmpdir differs per machine. No fixture copied from a transcript contains either 
 
 `b-pr-body-arrow.txt` is the command the conductor **ran against both the pre-fix and the post-fix
 guard** while opening this branch's pull request; it denied on both, naming
-`server__miq-server__appsettings.json` as a "shell redirection into it" with no redirection anywhere
-in it. It is the second incident of the same shape — miq's, `u-miq-gh-pr-body.txt`, is the first, and
-the difference between them is instructive: miq's filename ends `.txt`, a scratch extension, so that
-one allows for a reason that has nothing to do with the defect. This one carries the bytes that
-actually reproduce.
+`server__fieldapp-server__appsettings.json` as a "shell redirection into it" with no redirection
+anywhere in it. It is the second incident of the same shape — deployment B's, `u-field-gh-pr-body.txt`,
+is the first, and the difference between them is instructive: that one's filename ends `.txt`, a
+scratch extension, so it allows for a reason that has nothing to do with the defect. This one carries
+the bytes that actually reproduce.
 
 The other twelve are written for this corpus. Two pairs are the measurement and must be read as
 pairs:
@@ -199,13 +212,14 @@ point the corpus can no longer see what it claims to be checking.
 
 ## Not this guard's, and not verified
 
-`u-miq-*.txt` are quoted in `C:\code\repos\miq\docs\notes\2026-08-13-conducted-lite-field-notes.md`
-(on branch `docs/conducted-lite-field-notes`, not on `main`). They are quoted from a note, not
+`u-field-*.txt` are quoted in deployment B's note
+`docs/notes/2026-08-13-conducted-lite-field-notes.md` (on branch
+`docs/conducted-lite-field-notes`, not on `main`). They are quoted from a note, not
 lifted from a transcript, and fed to a byte-identical guard they **allow** where the note records a
 denial — they have been tidied for the note, and tidying a command changes which branch it hits.
-Two carry a literal `...` inside the command. `u-miq-gh-pr-body.txt` is provably abridged: the deny
-names `server__miq-server__appsettings.json` while the quoted body reads
-`server__miq-server__appsettings.json.txt:14`, and that token cannot produce that deny.
+Two carry a literal `...` inside the command. `u-field-gh-pr-body.txt` is provably abridged: the deny
+names `server__fieldapp-server__appsettings.json` while the quoted body reads
+`server__fieldapp-server__appsettings.json.txt:14`, and that token cannot produce that deny.
 
 **The raw transcript lines have been requested.** Until they arrive these do not count toward the
 corpus result and nothing is tuned to make them fire.

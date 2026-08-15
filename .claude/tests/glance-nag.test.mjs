@@ -7,7 +7,7 @@
 //     node .claude/tests/glance-nag.test.mjs N4         # run only cases whose id contains N4
 //
 // WHAT IT IS ABOUT. The nag fires once per feature and had no ceiling and no notion of a finished
-// feature. bookjob's turn of 2026-08-14 emitted TWELVE of them in one block, every one true and every
+// feature. A field turn of 2026-08-14 emitted TWELVE of them in one block, every one true and every
 // one useless: all twelve were complete features whose rows the previous session-start had SWEPT INTO
 // archive.md, so the thing the line asks for — a decision recorded against the move — could not exist
 // for any of them. Twelve lines is not a fact a conductor reads, it is wallpaper, which is the failure
@@ -169,7 +169,7 @@ function sweep(repo, names, rest = {}) {
   writeRoadmap(repo.main, { complete: names, ...rest });
 }
 
-// THE SECOND HALF, AND THE ONE bookjob ACTUALLY HIT. `session-start.mjs` sweeps '## complete' into
+// THE SECOND HALF, AND THE ONE THE FIELD TURN ACTUALLY HIT. `session-start.mjs` sweeps '## complete' into
 // archive.md: the row LEAVES roadmap.md, archive.md keeps it verbatim, and THE FEATURE FOLDER IS NOT
 // TOUCHED. So on that turn the feature stops being declared 'complete' — `placeFeatureRows` skips an
 // archived feature before it places anything, so the declared status becomes '(not on the roadmap
@@ -357,7 +357,7 @@ kase('N7', 'the roadmap variant: twelve features swept to `## complete`, facts b
   const refreshed = (text.split('\n').find((l) => l.includes('Updated state recorded')) || '');
   for (const n of names) {
     need(fails, refreshed.includes(`.conducted/work/${n}/state.md`),
-      `the turn did not refresh ${n}'s facts block, so the fixture is not bookjob's turn: ${refreshed}`);
+      `the turn did not refresh ${n}'s facts block, so the fixture is not the field turn: ${refreshed}`);
   }
   need(fails, nagLines(text).length === 0,
     `${nagLines(text).length} nag line(s) on a turn where nothing was owed a decision: ${nagLines(text).join(' | ')}`);
@@ -409,7 +409,7 @@ kase('N9', 'a feature swept into archive.md is not nagged, with too few of them 
   return { fails, text };
 });
 
-kase('N10', "bookjob's turn, as it actually happened: twelve features swept INTO archive.md, and no nag at all", () => {
+kase('N10', "the field turn, as it actually happened: twelve features swept INTO archive.md, and no nag at all", () => {
   const fails = [];
   const names = Array.from({ length: 12 }, (_, i) => `feat${String(i + 1).padStart(2, '0')}`);
   const repo = buildRepo('n10', names);
@@ -424,7 +424,7 @@ kase('N10', "bookjob's turn, as it actually happened: twelve features swept INTO
   const refreshed = (text.split('\n').find((l) => l.includes('Updated state recorded')) || '');
   for (const n of names) {
     need(fails, refreshed.includes(`.conducted/work/${n}/state.md`),
-      `the turn did not refresh ${n}'s facts block, so the fixture is not bookjob's turn: ${refreshed}`);
+      `the turn did not refresh ${n}'s facts block, so the fixture is not the field turn: ${refreshed}`);
   }
   // NOT ONE BULK LINE EITHER. A count is the right answer for twelve features that might be owed a
   // decision; it is the wrong answer for twelve that are archived and done, and it is still a line

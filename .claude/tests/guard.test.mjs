@@ -218,7 +218,7 @@ for (const r of results) {
       A: 'A — known defects. These FAIL today; each turns green when its defect is fixed.',
       B: 'B — correct behaviour. These PASS today; a failure here is a regression.',
       observed: 'observed — real, out of this fix\'s scope. NOT COUNTED, reported only.',
-      unverified: 'unverified — miq, quoted not transcribed. NOT COUNTED, reported only.',
+      unverified: 'unverified — from the field, quoted not transcribed. NOT COUNTED, reported only.',
     }[g] || g;
     console.log('');
     console.log(heading);

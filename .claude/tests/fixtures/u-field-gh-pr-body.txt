@@ -1,0 +1,6 @@
+gh pr create --draft --base main --title "..." --body "$(cat <<'EOF'
+...
+  github-pat -> server__fieldapp-server__appsettings.json.txt:14   (inside the tarball)
+...
+EOF
+)"

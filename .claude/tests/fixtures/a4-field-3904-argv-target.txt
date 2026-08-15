@@ -1,4 +1,4 @@
-D="/c/Users/simon/AppData/Local/Temp/claude/C--code-repos-mukfork/307243ed-.../scratchpad/recovered"
+D="/c/Users/simon/AppData/Local/Temp/claude/C--code-repos-fieldapp/307243ed-.../scratchpad/recovered"
 python - "$D/look4.html" <<'PY' 2>/dev/null || node -e '
 const fs=require("fs");
 …

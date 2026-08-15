@@ -1,4 +1,4 @@
 gh pr create --title "x" --body "$(cat <<'EOF'
-findings: github-pat -> server__miq-server__appsettings.json  (in the tarball)
+findings: github-pat -> server__fieldapp-server__appsettings.json  (in the tarball)
 EOF
 )"

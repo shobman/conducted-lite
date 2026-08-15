@@ -198,8 +198,8 @@ export const MUTANT_GUARD = (() => {
 // repo's paths, so point the pass at that repo instead with
 //     CONDUCTED_FRESHNESS_REPLAY=<file>  CONDUCTED_FRESHNESS_REPLAY_ROOT=<that repo's root>
 // which adds one more quiet case reading those bytes against that tree. Nothing is tuned to make
-// either pass: a finding is a finding, and the conductor's acceptance step is where miq's own file
-// gets replayed.
+// either pass: a finding is a finding, and the conductor's acceptance step is where an adopting
+// repo's own file gets replayed.
 const quietFixtures = readdirSync(join(HERE, 'fixtures'))
   .filter((f) => /^f-quiet-.*\.txt$/.test(f))
   .sort()
@@ -233,15 +233,15 @@ export const cases = [
     expect: { decision: 'allow', notMentions: ['docs/assets/row-1.jpg'] },
   },
   {
-    id: 'A2-mukfork-4399-cp-glob',
+    id: 'A2-field-4399-cp-glob',
     group: 'A',
     defect: [2, 4],
-    what: 'a glob in the source manufactures a phantom target (mukfork main transcript line 4399)',
+    what: 'a glob in the source manufactures a phantom target (field transcript line 4399)',
     why: 'rawTokens excludes `*`, so `row-*.jpg` splits and the fragment `.jpg` survives as an ' +
       'extension with no stem, is resolved against the repo root, and is announced as the file ' +
       'written. A bare extension was never a path candidate. Every source and the destination are ' +
       'outside this repo.',
-    payload: bash('a2-mukfork-4399-cp-glob'),
+    payload: bash('a2-field-4399-cp-glob'),
     expect: { decision: 'allow', notMentions: ['.jpg'] },
   },
   {
@@ -269,16 +269,16 @@ export const cases = [
     expect: { decision: 'allow' },
   },
   {
-    id: 'A4-mukfork-3904-argv-target',
+    id: 'A4-field-3904-argv-target',
     group: 'A',
     defect: [4],
     what: 'an unresolvable interpreter target, with a filename inside the HTML being written ' +
-      '(mukfork main transcript line 3904)',
+      '(field transcript line 3904)',
     why: 'DENY IS THE RIGHT VERDICT HERE and stays: the target is `process.argv[1]`, which does not ' +
       'resolve. What is wrong is only the name. `ramen.jpg` occurs four times as `<img src=...>` ' +
       'inside the HTML string being written and nowhere else. This is the single place in the guard ' +
       'where a failure to know is converted into a confident claim.',
-    payload: bash('a4-mukfork-3904-argv-target'),
+    payload: bash('a4-field-3904-argv-target'),
     expect: {
       decision: 'deny',
       named: null,
@@ -287,16 +287,16 @@ export const cases = [
     },
   },
   {
-    id: 'A5-mukfork-2054-heredoc',
+    id: 'A5-field-2054-heredoc',
     group: 'A',
     defect: [5, 4],
     what: 'a python heredoc editing .conducted/standards.md, denied for a filename in a SEARCH ' +
-      'string (mukfork main transcript line 2054)',
+      'string (field transcript line 2054)',
     why: 'The write target is `p`, a literal three lines above, and `.conducted/**` is the FIRST ' +
       'entry in the allow-set the deny message itself prints. `creator.html` occurs once, inside ' +
       'the old text being replaced. Nobody noticed this denial at the time; it was worked around ' +
       'by re-attempting the same path with the Edit tool.',
-    payload: bash('a5-mukfork-2054-heredoc'),
+    payload: bash('a5-field-2054-heredoc'),
     expect: { decision: 'allow', notMentions: ['creator.html', 'profile.html'] },
   },
   {
@@ -533,7 +533,7 @@ export const cases = [
     id: 'B-agentid-write-product',
     group: 'B',
     what: 'a dispatched builder writing product code — allowed, and this is the point',
-    why: 'miq: 113 subagent transcripts, zero denials. A dispatched builder is exactly who is ' +
+    why: 'The field: 113 subagent transcripts, zero denials. A dispatched builder is exactly who is ' +
       'supposed to be writing code, and the check runs before any other work.',
     payload: write('src/app.ts', { agent_id: 'agent_01ABC', agent_type: 'general-purpose' }),
     expect: { decision: 'allow' },
@@ -564,7 +564,7 @@ export const cases = [
   {
     id: 'B-echo-local-properties',
     group: 'B',
-    what: "redirection into local.properties — miq's one genuine catch across nine denials",
+    what: "redirection into local.properties — the field's one genuine catch across nine denials",
     why: 'An Android build-config write. Extension-less siblings are missed by declaration; this ' +
       'one is caught and must stay caught.',
     payload: bash('b-echo-local-properties'),
@@ -643,7 +643,7 @@ export const cases = [
     id: 'B-grep-two-files',
     group: 'B',
     what: 'grep with two file arguments — path-shaped arguments with no write verb',
-    why: "miq's first suggested test case. Arguments that look like paths are not a write.",
+    why: "the field's first suggested test case. Arguments that look like paths are not a write.",
     payload: bash('b-grep-two-files'),
     expect: { decision: 'allow' },
   },
@@ -671,10 +671,10 @@ export const cases = [
   // Defect 8, and it is group B rather than group A because the guard's own header already promises
   // it: "reads, builds, tests and installs are never touched", and a `gh pr create` is a read of the
   // diff plus a piece of prose. Two independent field incidents, both denied with
-  // "shell redirection into it" against a command containing no redirection: miq, a filename inside
-  // a fenced block in a PR body, worked around with --body-file; then the conductor opening this
-  // branch's own pull request. A guard that gets routed around by switching tools has taught the
-  // opposite of the rule.
+  // "shell redirection into it" against a command containing no redirection: one from the field, a
+  // filename inside a fenced block in a PR body, worked around with --body-file; then the conductor
+  // opening this branch's own pull request. A guard that gets routed around by switching tools has
+  // taught the opposite of the rule.
   //
   // THE PAIR THAT DECIDES THE MECHANISM is B-pr-body-arrow and B-arrow-unquoted-is-a-real-redirect,
   // and they must be read together. The obvious reading of the first — "`->` is an arrow, so a `>`
@@ -697,7 +697,7 @@ export const cases = [
     why: 'No redirection exists anywhere in this command. The arrow sits in a `<<\'EOF\'` body ' +
       'inside a `"…"` argument, so the shell never reads that `>` as code.',
     payload: bash('b-pr-body-arrow'),
-    expect: { decision: 'allow', notMentions: ['server__miq-server__appsettings.json'] },
+    expect: { decision: 'allow', notMentions: ['server__fieldapp-server__appsettings.json'] },
   },
   {
     id: 'B-pr-body-fat-arrow',
@@ -2032,7 +2032,7 @@ export const cases = [
     id: 'F-fresh-abs-windows',
     group: 'B',
     what: 'an absolute Windows path in the content written to CLAUDE.md is flagged',
-    why: "miq's runbook line: a toolchain path that was correct in one shell and wrong in the two " +
+    why: "a field runbook line: a toolchain path that was correct in one shell and wrong in the two " +
       'others the same repo uses, WRONG WITHIN MINUTES of being written. Age was never the signal, ' +
       'which is why the check is at the write and why this class needs no search at all — the shape ' +
       'is the finding.',
@@ -2079,7 +2079,7 @@ export const cases = [
     id: 'F-fresh-name-backticked-missing',
     group: 'B',
     what: 'a backticked name the repo cannot find is flagged, and the finding says what was searched',
-    why: "miq's confirmed kill: an instruction file named a service unit that had moved, an " +
+    why: "the field's confirmed kill: an instruction file named a service unit that had moved, an " +
       'overnight session queried the retired unit, got a confident zero, and wrote a defect that ' +
       'did not exist into a state.md as evidence. Caught at the door instead of hunted afterward. ' +
       'The finding must NAME the token and SAY WHAT WAS SEARCHED — a bare "suspicious" is the ' +
@@ -2362,12 +2362,12 @@ export const cases = [
   },
 
   // ===========================================================================================
-  // UNVERIFIED — miq's commands. NOT COUNTED. Reported for information only.
+  // UNVERIFIED — a field deployment's commands. NOT COUNTED. Reported for information only.
   //
   // These are quoted in a field note, not lifted from a transcript, and they have been tidied for
   // the note: fed to this guard they ALLOW, while the note records each as a denial. At least one
-  // is provably abridged — the deny names `server__miq-server__appsettings.json` while the quoted
-  // body reads `server__miq-server__appsettings.json.txt:14`, and that token cannot produce that
+  // is provably abridged — the deny names `server__fieldapp-server__appsettings.json` while the quoted
+  // body reads `server__fieldapp-server__appsettings.json.txt:14`, and that token cannot produce that
   // deny. Two of the three carry a literal `...` elision in the middle of the command.
   //
   // THE RAW TRANSCRIPT LINES HAVE BEEN REQUESTED. Nothing here is tuned to make it fire, and
@@ -2375,31 +2375,31 @@ export const cases = [
   // into group A or are deleted.
   // ===========================================================================================
   {
-    id: 'U-miq-grep-two-files',
+    id: 'U-field-grep-two-files',
     group: 'unverified',
     what: 'grep with two file arguments, reported as "copying or moving over it"',
     note: 'Does not reproduce: allows. No cp/mv/ln/install/rsync verb is present anywhere in the ' +
       'quoted text, so it cannot reach the branch the deny names.',
-    payload: bash('u-miq-grep'),
+    payload: bash('u-field-grep'),
     expect: { decision: 'deny', named: 'image/build/customize-chroot.sh' },
   },
   {
-    id: 'U-miq-gh-pr-body',
+    id: 'U-field-gh-pr-body',
     group: 'unverified',
     what: 'a filename inside a PR body, reported as "shell redirection into it"',
     note: 'Does not reproduce: allows. Provably abridged — see the header above. The note itself ' +
       'records that no redirection existed anywhere in the command.',
-    payload: bash('u-miq-gh-pr-body'),
-    expect: { decision: 'deny', named: 'server__miq-server__appsettings.json' },
+    payload: bash('u-field-gh-pr-body'),
+    expect: { decision: 'deny', named: 'server__fieldapp-server__appsettings.json' },
   },
   {
-    id: 'U-miq-python-var-owned',
+    id: 'U-field-python-var-owned',
     group: 'unverified',
     what: 'python -c editing an owned state.md via a variable, reported as unresolvable',
     note: 'Does not reproduce as quoted: allows. The note attributes it to variable binding; the ' +
       'measurement in state.md says otherwise, and A6 above holds the mechanism that does ' +
       'reproduce. Carries a literal `...` elision.',
-    payload: bash('u-miq-python-var'),
+    payload: bash('u-field-python-var'),
     expect: { decision: 'allow' },
   },
 ];

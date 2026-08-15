@@ -819,10 +819,10 @@ function main(data, R, D) {
   // ---- the human-region nag. The machine detects; the conductor writes; the owner is never asked.
   //
   // TWO GUARDS, AND EACH ONE ALONE LEAVES A REAL HOLE, so both. Measured in the field on 2026-08-14:
-  // ONE bookjob turn emitted TWELVE of these lines, every one true and every one useless — all twelve
-  // were complete features whose rows the previous session-start had swept out of the roadmap into
-  // archive.md, so the decision the line asks for could not exist for any of them, and twelve lines
-  // is the wallpaper this file's header names by name.
+  // ONE turn in an adopting repo emitted TWELVE of these lines, every one true and every one
+  // useless — all twelve were complete features whose rows the previous session-start had swept out
+  // of the roadmap into archive.md, so the decision the line asks for could not exist for any of
+  // them, and twelve lines is the wallpaper this file's header names by name.
   //
   //   A FINISHED FEATURE IS NEVER NAGGED, and there are THREE ways to read finished. `derived` or
   // `declared` saying 'complete', or the feature being IN THE ARCHIVE. Any one of them is enough,
@@ -831,7 +831,7 @@ function main(data, R, D) {
   // merged-and-deleted branch leaves behind. The cost of being wrong in this direction is one missed
   // nag on a feature that is finished anyway.
   //   THE ARCHIVE ARM IS THE ONE THAT CATCHES THE MEASURED INCIDENT, and it was missed the first
-  // time this was written. bookjob's turn was the SWEEP INTO archive.md, not a move to
+  // time this was written. That turn was the SWEEP INTO archive.md, not a move to
   // '## complete': session-start takes the row OUT of the roadmap and leaves the feature folder
   // exactly where it is, so on that very turn the declared status stops being 'complete' and becomes
   // '(not on the roadmap yet)'. Reproduced against this hook with both status arms already in place,

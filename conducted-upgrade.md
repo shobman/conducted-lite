@@ -426,12 +426,12 @@ history across dispatches. Meanwhile the law beside it, "a review closes; it doe
 correct and load-bearing but read at the wrong moment says *keep patching*, with nothing next to it
 saying *unless it is the same shape again*.
 
-Two independent instances, both 2026-08-14. A miq CI workflow took three `/code-review` passes, each
-finding a different route to *a safety mechanism silently disarmed while a green check watched*;
-every finding graded LOW or MEDIUM, nothing escalated, and the conductor caught it only by luck off
-a pre-commitment made one turn earlier in conversation — which is not a mechanism. Then this repo's
-own behind-ness line drew three routes to *a machine prescribing a remedy for a state it never
-checked* — a diverged branch and a detached HEAD both told to run `git pull --ff-only`, and a
+Two independent instances, both 2026-08-14. A CI workflow in the field took three `/code-review`
+passes, each finding a different route to *a safety mechanism silently disarmed while a green check
+watched*; every finding graded LOW or MEDIUM, nothing escalated, and the conductor caught it only by
+luck off a pre-commitment made one turn earlier in conversation — which is not a mechanism. Then
+this repo's own behind-ness line drew three routes to *a machine prescribing a remedy for a state it
+never checked* — a diverged branch and a detached HEAD both told to run `git pull --ff-only`, and a
 discard advised as lossless while the human region of that file was uncommitted — graded MEDIUM,
 MEDIUM and HIGH.
 
@@ -584,11 +584,11 @@ condition for a case nobody has hit.
 ## 2026-08-15 — standards.md leaves the doctrine (LAW)
 
 **WHY.** A rules file that is *meant to grow* becomes an event log wearing a rulebook's name.
-mukfork's reached **1,394 lines in 14 days**; the owner's own long-lived standards notes had by then
-started contradicting each other, noted 2026-08-06. Meanwhile the code cannot drift from itself — it
-is the law of what the system does, and a settled taste is visible in what shipped. So the doctrine
-keeps no standards organ: an owner's taste file is cited when it exists, required never. Owner
-ruling, 2026-08-15, landed canonically in commit `e0b2042`.
+One deployment's reached **1,394 lines in 14 days**; the owner's own long-lived standards notes had
+by then started contradicting each other, noted 2026-08-06. Meanwhile the code cannot drift from
+itself — it is the law of what the system does, and a settled taste is visible in what shipped. So
+the doctrine keeps no standards organ: an owner's taste file is cited when it exists, required
+never. Owner ruling, 2026-08-15, landed canonically in commit `e0b2042`.
 
 **DETECT.** Any one of these means the entry is needed:
 
@@ -640,7 +640,8 @@ owner's name wherever the canonical text names one.
    you do the triage work, then hand them the result. Two cases:
 
    - **SCAFFOLD** — the `<!-- Delete this scaffold` comment is still in it, so nothing of the
-     owner's is in it either. Offer deletion and take their word. Nothing else to do. *(bookjob.)*
+     owner's is in it either. Offer deletion and take their word. Nothing else to do. *(One
+     deployment's untouched scaffold.)*
    - **CONTENT** — anything else. **Triage every rule in it. One verdict each, evidence cited:**
 
      1. **EMBODIED** — the rule describes what shipped code now does. Cite the code, or the
@@ -658,9 +659,10 @@ owner's name wherever the canonical text names one.
      distilled file. **The working tree diff IS the proposal.** Nothing is committed without their
      word.
 
-   What the triage meets in the field: miq's 97 lines are already near-distilled — expect mostly
-   LIVE TASTE and a short strip list. mukfork's 1,394 lines in 14 days are the event log this
-   ruling is about — expect most of it EVENT and EMBODIED, and expect the conflicts to be in there.
+   What the triage meets in the field: a 97-line file met in one deployment is already
+   near-distilled — expect mostly LIVE TASTE and a short strip list. Another's 1,394 lines in 14 days
+   are the event log this ruling is about — expect most of it EVENT and EMBODIED, and expect the
+   conflicts to be in there.
    Same procedure for both; only the proportions differ.
 
    The canonical repo deleted its own `.conducted/standards.md` in `e0b2042` because it was a

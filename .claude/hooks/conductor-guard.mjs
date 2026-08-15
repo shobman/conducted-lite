@@ -982,15 +982,15 @@ function writeCallTargets(cmd) {
 // ------------------------------------------ QUOTING, because `>` is not a redirect wherever it sits
 // A `>` is a redirection only where the shell is READING CODE. Inside a quoted word or a heredoc
 // body it is a character in a piece of prose, and the field caught this branch reading prose as a
-// write twice: once from miq — a filename in a fenced block in a `gh pr create` body — and once from
-// the conductor opening this very branch's pull request. Both were this shape,
+// write twice: once from the field — a filename in a fenced block in a `gh pr create` body — and
+// once from the conductor opening this very branch's pull request. Both were this shape,
 //
 //     gh pr create --title "x" --body "$(cat <<'EOF'
-//     findings: github-pat -> server__miq-server__appsettings.json  (in the tarball)
+//     findings: github-pat -> server__fieldapp-server__appsettings.json  (in the tarball)
 //     EOF
 //     )"
 //
-// denied as "writes server__miq-server__appsettings.json (shell redirection into it)" with no
+// denied as "writes server__fieldapp-server__appsettings.json (shell redirection into it)" with no
 // redirection anywhere in the command. Both were worked around by writing the body to a scratch file
 // and passing --body-file, which is the worst outcome a guard can produce: the rule was not obeyed,
 // it was routed around, and the lesson taught was "switch tools when the hook complains".
@@ -1363,13 +1363,13 @@ function scanBash(cmd, cwd, root, depth = 0) {
 // `.conducted/work/instruction-freshness/` is the why; this is the how, and the whole of it.
 //
 // THE FIELD CASE IS TWO INCIDENTS, and neither was caught by anything that reads a file later.
-// miq's instruction file named a service unit that had moved: an overnight session queried the
-// retired unit, got a confident zero, and wrote "no HTTP for 50 minutes" into a feature's state.md
-// as an observation. Re-queried against the live unit the next day, the poller had run every three
-// seconds for 251 minutes. A stale line in a standing instruction manufactured a defect that did
-// not exist. The second is a runbook line written with an absolute Windows toolchain path, correct
-// in one shell and wrong in the two others the same repo uses — wrong within MINUTES of being
-// written, so age was never the signal.
+// One deployment's instruction file named a service unit that had moved: an overnight session
+// queried the retired unit, got a confident zero, and wrote "no HTTP for 50 minutes" into a
+// feature's state.md as an observation. Re-queried against the live unit the next day, the poller
+// had run every three seconds for 251 minutes. A stale line in a standing instruction manufactured
+// a defect that did not exist. The second is a runbook line written with an absolute Windows
+// toolchain path, correct in one shell and wrong in the two others the same repo uses — wrong
+// within MINUTES of being written, so age was never the signal.
 //
 // SO THE CHECK IS AT THE WRITE, NOT AT THE READ. Both lines entered the file at a write, and the
 // one context that can fix or justify a line is the context typing it. A session-start version of
@@ -1393,9 +1393,9 @@ function scanBash(cmd, cwd, root, depth = 0) {
 //
 // THE TOKEN BOUND IS DECLARED AND HARD: BACKTICKED SPANS AND PATH-SHAPED STRINGS, NEVER PROSE. A
 // sentence is never a finding. Judging prose is what the first draft of this feature was killed
-// for: MukFork's own stale line — "the stack is not chosen" — carries no token any search can hold,
-// so a detector able to catch it would have to read meaning, and a check that flags prose it merely
-// finds suspicious is ignored within a week. Two classes only:
+// for: an adopting repo's own stale line — "the stack is not chosen" — carries no token any search
+// can hold, so a detector able to catch it would have to read meaning, and a check that flags prose
+// it merely finds suspicious is ignored within a week. Two classes only:
 //
 //   A. AN ABSOLUTE, PLATFORM-SPECIFIC PATH — `C:\…`, `C:/…`, `/c/…`, `/mnt/c/…`, `/Users/…`,
 //      `/home/<name>/…`. No search is made and none is needed: the shape itself is the finding.
@@ -1454,11 +1454,12 @@ const ABS_HEAD_ONLY = new RegExp(`^(?:${ABS_HEADS.join('|')})`);
 // a CONTINUATION only when it carries a separator of its own, which is what a path fragment has and
 // what the next word of a sentence does not. Bounded at four words: past that it is a sentence.
 //
-// AND A CONTINUATION IS NEVER THE NEXT PATH. Measured on `/mnt/c/work/miq, /Users/simon/bin/poller`:
-// the second path carries separators, so it read as a continuation of the first and two paths were
-// reported as one — while the second was ALSO reported in its own right, so the write got a finding
-// naming a token that appears nowhere in it. A continuation therefore may not begin with a separator
-// or a drive letter, and a base that ends in sentence punctuation has already ended.
+// AND A CONTINUATION IS NEVER THE NEXT PATH. Measured on
+// `/mnt/c/work/fieldapp, /Users/simon/bin/poller`: the second path carries separators, so it read as
+// a continuation of the first and two paths were reported as one — while the second was ALSO
+// reported in its own right, so the write got a finding naming a token that appears nowhere in it. A
+// continuation therefore may not begin with a separator or a drive letter, and a base that ends in
+// sentence punctuation has already ended.
 const ABS_CONTINUATION = /^(?:[ \t](?![\\/])(?![A-Za-z]:[\\/])[^\s'"`)\]}<>|]*[\\/][^\s'"`)\]}<>|]*){1,4}/;
 // A candidate is trimmed of the punctuation a sentence puts AFTER a path, never of anything inside.
 const trimEdge = (s) => String(s).replace(/^[\s'"`([{]+/, '').replace(/[\s'"`)\]},.;:!?]+$/, '');
