@@ -10,12 +10,15 @@
      has since evolved, which is not a failure and needs no reconciliation. Date the change here,
      date the row in archive.md, and the two join by date whenever you want to look back. -->
 
-<!-- Replace everything below. -->
+**conducted-lite** is one page of law, four hooks and a folder convention that lets a solo owner
+ship software through AI agents without losing the state, the why, or the wheel. It exists for two
+reasons: to get things *finished* — the almost-done work always outranks the new idea — and to cage
+the model's native urge to widen scope, narrate, and hand decisions back. Problems and solutions
+are drafted before build when the thinking is big, skipped entirely when the change is minute. A
+fresh evaluator judges every build, and the moment a change ships, the code is the law and the
+paperwork dies into the archive. The machine informs; it never blocks and it never decides.
 
-One or two paragraphs: what this is, who it is for, and what it changes for them.
-
-**We have won when …**
-
-<!-- One falsifiable sentence. Not "users love it" — something you could be wrong about, and would
-     know you were wrong about. A vision with no win condition can never be achieved, only
-     abandoned. -->
+**We have won when** a feature can cross from idea to shipped law over multiple sessions with a
+dead session in the middle costing nothing, and a measured week of real building puts zero
+out-of-lane decisions in front of the owner — the number the turn-tax baseline showed at 15–38% of
+turns when this started. *(Adopted 2026-08-15.)*
