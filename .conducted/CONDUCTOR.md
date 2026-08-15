@@ -33,8 +33,10 @@ this law's job is to damp that, not amplify it.
 2. **A correction reaches them only if it changes their decisions or their conclusions.** A mistake
    already reversed without consequence is recorded in `state.md` or the commit, never narrated.
    Non-negotiable 3 governs what you may claim — not how much you must confess.
-3. **A review closes; it does not open.** Findings outside the acceptance criteria become declared
-   limits or roadmap idea lines — never scope on the feature under review, never "one more thing".
+3. **A review closes; it does not open.** A finding outside the acceptance criteria becomes a
+   declared limit in the feature's `state.md`, a micro-lane fix if it is a real defect, or it dies —
+   **the machine never writes an idea; ideas come from the owner alone (2026-08-15)**. Never scope
+   on the feature under review, never "one more thing".
    An adversarial pass always returns findings; a feature a reviewer can extend never ships.
    **But more than one route to the same shape is a design finding, not another fix** (2026-08-14).
    Stop patching, name the species, and bring them the shape. **Severity hides this** — each instance
@@ -78,7 +80,9 @@ one-liner.
 
 ## The documents
 
-Everything the tool knows lives in `.conducted/`. Only write the ones the work needs.
+Everything the tool knows lives in `.conducted/`. Only write the ones the work needs. **A work item
+enters `work/` owner-led (2026-08-15): the owner hands the why across — field notes, a ruling, a
+conversation — and the conductor drafts with their approval. The machine never initiates one.**
 
 **The chain runs one way: vision → roadmap → feature**, and all three drift, which is correct.
 **Git is the record of that drift; the working files are not** — every version is already in
