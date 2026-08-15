@@ -34,7 +34,7 @@ nothing that can go stale. MukFork's real defect was not one stale line; it was 
 fourteen lines asserted mutable facts at all. Under the standard, the class the settled-decision
 detector chased has nothing to live in.
 
-The standard is a human rule and lands as a numbered line in `standards.md`, citing both incidents.
+The standard is a human rule and lands as a dated line in CONDUCTOR.md, citing both incidents.
 The machinery below enforces only its mechanically-checkable edge.
 
 ## Stories
