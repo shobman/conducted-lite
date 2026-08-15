@@ -54,11 +54,40 @@ flow off a one-liner.
 
 ## Getting started
 
-Copy the contents of this repository into the root of your project, then read
-`.conducted/CONDUCTOR.md`. It is one page and it is the whole law.
+Conducted owns exactly one folder in your project: `.conducted/`. Adopting it means copying that
+folder, plus the machinery that runs it, into your repo:
 
-Then tell your agent to read it. Everything else follows from there: it will open by telling you
-where things stand, and it will not write product code without dispatching a builder.
+- `.conducted/` — the law and the ledger.
+- `.claude/hooks/`, `.claude/scripts/`, `.claude/tests/` — the hooks and the code they run on.
+- The hook registrations and permissions in `.claude/settings.json`. If your repo already has a
+  `.claude/settings.json`, merge these entries into it — never replace the file.
+
+Outside `.conducted/`, two more steps:
+
+- Add `worktrees/` to your repo's `.gitignore`.
+- Point your `CLAUDE.md` at the law. Merge these three paragraphs into your existing `CLAUDE.md`, or
+  create the file with them if you don't have one:
+
+  > How we work: `.conducted/CONDUCTOR.md`. One page, and it is the whole operating law — read it
+  > first.
+  >
+  > What the software does: the code. Once a change ships it is the law of behaviour; the work that
+  > built it is archived for mining, never operated from.
+  >
+  > Where the work is: `.conducted/roadmap.md` is the ledger and its headings are the status. Each
+  > row points at `.conducted/work/<feature>/`, where that feature's documents and `state.md` live.
+
+  This is the one ask outside `.conducted/`. It's your file, and the ask can be overruled by the repo
+  owner — conducted still runs without it, but sessions will not be led to the law.
+
+Nothing else ships. Your README, your LICENSE and the rest of your `CLAUDE.md` stay exactly yours;
+conducted-lite's own README and LICENSE never enter your repo. `conducted-upgrade.md` is fetched by
+URL when needed, never carried — see "Keeping the law current" below.
+
+Once `.conducted/` and the machinery are in place, read `.conducted/CONDUCTOR.md`. It is one page and
+it is the whole law. Then tell your agent to read it. Everything else follows from there: it will
+open by telling you where things stand, and it will not write product code without dispatching a
+builder.
 
 Two things worth knowing before you start:
 
