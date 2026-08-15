@@ -11,8 +11,7 @@ Work through them oldest first and apply every entry whose DETECT says the local
 ## Rules, before any entry
 
 - **This is an upgrader, not an installer.** If the local repo has no `.conducted/CONDUCTOR.md`,
-  stop and say so — installation is the README's "Getting started", adoption from the older heavy
-  framework is `conducted-adoption.md`.
+  stop and say so — installation is the README's "Getting started".
 - **Merge, never overwrite.** A local law page may be legitimately adapted — a different owner
   name, different lanes, extra project rules. Port exactly what an entry names and keep every local
   byte you were not told to touch. Where the canonical text names an owner, substitute the local
@@ -123,7 +122,7 @@ exactly this clone and nothing further:
    `.claude/hooks/conductor-guard.mjs` · `.claude/hooks/stop-glance.mjs` ·
    `.claude/scripts/lite-core.mjs` · `.claude/scripts/lite-rules.mjs` ·
    `.claude/scripts/lite-derive.mjs` · `.claude/scripts/session-end.mjs` ·
-   `.claude/scripts/session-start.mjs` · `.claude/scripts/migrate-from-full.mjs` ·
+   `.claude/scripts/session-start.mjs` ·
    `.claude/tests/` (the entire directory, fixtures included; it is new).
    **The set is copied whole because the clone is always current, and a partial copy of a coherent
    set fails loud at best** — `session-start.mjs` and `session-end.mjs` import `lite-core.mjs`,
@@ -280,7 +279,7 @@ set, for the reason the guard entry gives — `.claude/hooks/stop-glance.mjs` ·
 `.claude/hooks/conductor-guard.mjs` · `.claude/scripts/lite-core.mjs` ·
 `.claude/scripts/lite-rules.mjs` · `.claude/scripts/lite-derive.mjs` ·
 `.claude/scripts/session-start.mjs` · `.claude/scripts/session-end.mjs` ·
-`.claude/scripts/migrate-from-full.mjs` · `.claude/tests/` (the whole directory). A repo that
+`.claude/tests/` (the whole directory). A repo that
 applied the guard entry from today's clone already has these bytes and finds this DETECT passing —
 say so and move on, **but its ADOPT below still applies**: the bytes arrived, so the glance is live
 and the owner is owed the one-line warning either way.

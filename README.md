@@ -70,14 +70,6 @@ Two things worth knowing before you start:
   linters, typecheckers), or your suite will quietly run several copies of itself. The tell is a test
   count that changed when no test changed.
 
-## Coming from the older, heavier framework
-
-`conducted-adoption.md` is written for the agent doing the migration rather than for you. Point your
-agent at it. It works out which parts of the old framework you were actually running before it tells
-you what you lose, refuses rather than guesses when it cannot identify your layout, moves files with
-`git mv` so history follows, and never merges or pushes. Everything it does is one commit on a branch
-you can revert.
-
 ## Keeping the law current
 
 The law occasionally earns an edit, and `conducted-upgrade.md` is the dated ledger of those edits,
